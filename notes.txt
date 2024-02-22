@@ -1,0 +1,17 @@
+
+[ ] How do we implement data for types?
+  - Some types, like arrays, take extra information, (length, sub-type, etc.), how do we handle this?
+  - Types are just rules. How do we approach that?
+
+- A statement is either just evaluation, or both evaluation and an assignement.
+  - Thus, we can break things up into evaluations, and assignements.
+
+Simplest evaluation is pushing something from memory/imm to "stack".
+Simplest assignement is popping something from "stack" to memory.
+
+mov stack[top], mem[addr]
+# vs
+mov mem[addr], stack[top]
+
+
+

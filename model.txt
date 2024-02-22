@@ -1,0 +1,12 @@
+Function: struct = {
+    
+}
+
+Context: struct = {
+    
+}
+
+contexts: Context[...] = { CZ, META, ... };
+
+
+

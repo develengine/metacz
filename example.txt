@@ -1,0 +1,93 @@
+#!/bin/metacz
+
+
+#* The back-end code that compiles user code *#
+
+AMD64 := CZ.create_context("AMD64");
+
+
+
+AMD64.transition();
+
+
+#* The user code that get's compiled *#
+
+Record: struct = {
+    name: *char = "<no name>";
+    id: i32 = 1;
+
+    local helper := 3;
+
+    final := helper * 4 + 1;
+
+    print_out: -> {
+        print("{id}: {name}, {final}");
+    }
+}
+
+Record.result: () -> i32 {
+    return id * final + id - final;
+}
+
+main: (args: char*[]) -> i32 = {
+    if argc < 2;
+        return 1;
+
+    if argv[1] == "lol" {
+        print("msg")
+    }
+
+    for i := 0; i < argc; i += 1 {
+        ...
+    }
+
+    for (i := 0; i < argc; i += 1) {
+        ...
+    }
+
+    record: Record;            # is initialized to default values
+
+    record_2: Record = xxx;    # is uninitialized (only memory, no code executed)
+
+
+    vec: i32[...];
+
+    for i := 0; i < 12; i += 1 {
+        vec.push(i);
+    }
+
+    while vec.length > 0 {
+        vec.pop();
+    }
+
+    return 0;
+}
+
+extern lol: (a: i32) -> i32
+{
+    print("haha\n");
+    return 123 * a;
+}
+
+
+s1.a = 2;
+s2.a = 2;
+
+# (s1, s2).a = 2;  # not great because of ambiguity for no specifier
+
+s1, s2 = s3, s4;
+
+(s1, s2)->a = 2, 3;
+
+(s1, s2)=>a = 2;
+
+(s1, s2)=> = s3;
+
+tu : (a: i32, b: i32) = 1, 2;
+tu.a
+
+
+(META, CODE)->fun: (a: i32, b: i32) -> i32 {
+}
+
+
