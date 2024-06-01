@@ -8,7 +8,9 @@
  */
 typedef enum
 {
-    vm_inst_AddSP,
+    vm_inst_Halt = 0,
+
+    vm_inst_IncSP,
 
     vm_inst_AddInt,
     vm_inst_SubInt,
@@ -49,7 +51,17 @@ typedef struct
 {
     dck_stretchy_t (u32, u32) code;
     dck_stretchy_t (u8,  u32) memory;
+    u32 sp, bp, ip;
 } vm_t;
+
+void
+vm_init(vm_t *vm, u32 code_offset);
+
+void
+vm_step(vm_t *vm, cz_t *cz);
+
+b32
+vm_is_running(vm_t *vm);
 
 void
 vm_execute(vm_t *vm, cz_t *cz, u32 code_offset);
@@ -82,6 +94,5 @@ typedef struct
 
 u32
 vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func);
-
 
 #endif // INTERPRETER_H_

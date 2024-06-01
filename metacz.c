@@ -210,6 +210,9 @@ cz_code_load_imm(cz_t *cz, i32 imm)
 
     u64 data_offset = arena_alloc(&cz->imm_data, sizeof(i32), _Alignof(i32));
 
+    i32 *imm_ptr = (i32 *)(cz->imm_data.data + data_offset);
+    *imm_ptr = imm;
+
     u32 imm_index = cz->immediates.count;
 
     dck_stretchy_push(cz->immediates, (immediate_t) {
