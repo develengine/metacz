@@ -138,7 +138,7 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
                     dck_stretchy_push(vm->code, vm_inst_SubInt);
                 }
 
-                vm_object_t object = vm_push_type(vm, compiler, cz, object_l.type);
+                vm_object_t object = vm_push_type(vm, compiler, cz, object_l.type_ref);
             } break;
 
             case abs_inst_LoadIn: /* fallthrough */
@@ -197,6 +197,26 @@ vm_init(vm_t *vm, u32 code_offset)
 void
 vm_step(vm_t *vm, cz_t *cz)
 {
+    ASSERT(vm->ip < vm->code.count);
+
+    vm_inst_t inst = vm->code.data[vm->ip];
+
+    if (inst == vm_inst_Halt)
+        return;
+
+    vm->ip++;
+
+    switch (inst) {
+        case vm_inst_IncSP: {
+            ASSERT(vm->ip < vm->code.count);
+            u32 amount = vm->code.data[vm->ip++];
+            vm->sp += amount;
+        } break;
+
+        case vm_inst_AddInt: {
+            ASSERT(vm->ip + 1 < vm->code.count);
+        } break;
+    }
 }
 
 b32

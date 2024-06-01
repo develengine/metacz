@@ -1,4 +1,11 @@
 
+NEO-DEVELOPMENT:
+
+[ ] We need to change the offset based abstract jumps to something else, like labels or somn.
+
+- Maybe the frontend and backend could be able to setup the metacz stuff in order to work correctly as well.
+  - Basically the backend could setup it's own types so that it can expose them to the user and so on.
+  - Maybe this makes sense for the frontend as well?
 
 
 
@@ -7,7 +14,9 @@ SPEEDRUN:
 [X] Create structure recording functions.
 [X] Create macros for writing instructions and generating functions.
 [X] Finger out scopes/jumps.
-[ ] Implement scopes/jumps.
+
+[X] Implement scopes/jumps.
+    - Done much later.
 
 [ ] Think about how to generalize pointers, so that we can use multiple stretchy buffers.
   - Probably our favourite, tagged indices.

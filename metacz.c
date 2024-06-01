@@ -52,6 +52,74 @@ cz_debug_dump(cz_t *cz)
         }
 
         printf("\n");
+
+        for (i32 code_index = 0; code_index < func->code_count; ++code_index) {
+            abs_code_t code = cz->abs_code.data[func->code_offset + code_index];
+            switch (code.inst) {
+                case abs_inst_Add:
+                    printf("     add\n");
+                    break;
+                case abs_inst_Sub:
+                    printf("     sub\n");
+                    break;
+                case abs_inst_LoadIn:
+                    printf("     load in\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_LoadVar:
+                    printf("     load var\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_LoadImm:
+                    printf("     load imm\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_LoadGlobal:
+                    printf("     load global\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_StoreIn:
+                    printf("     store in\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_StoreVar:
+                    printf("     store var\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_StoreImm:
+                    printf("     store imm\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_StoreGlobal:
+                    printf("     store global\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_Call:
+                    break;
+                case abs_inst_Ret:
+                    break;
+                case abs_inst_JmpUc: /* fallthrough */
+                    printf("     jmp uc\n");
+                case abs_inst_JmpNz: /* fallthrough */
+                    printf("     jmp nz\n");
+                case abs_inst_JmpZe: /* fallthrough */
+                    printf("     jmp ze\n");
+                case abs_inst_JmpEq: /* fallthrough */
+                    printf("     jmp eq\n");
+                case abs_inst_JmpNe: /* fallthrough */
+                    printf("     jmp ne\n");
+                case abs_inst_JmpLt: /* fallthrough */
+                    printf("     jmp lt\n");
+                case abs_inst_JmpGt: /* fallthrough */
+                    printf("     jmp gt\n");
+                case abs_inst_JmpLe: /* fallthrough */
+                    printf("     jmp le\n");
+                case abs_inst_JmpGe:
+                    printf("     jmp ge\n");
+                    printf("       %d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+            }
+        }
     }
 }
 
@@ -285,6 +353,8 @@ cz_func_end(cz_t *cz)
 
     abs_func_t *abs_func = cz->abs_funcs.data + abs_index;
 
+    u32 code_count = cz->rec_code.count - rec_func->code_offset;
+
     *abs_func = (abs_func_t) {
         .in_offset   = cz->abs_func_ins.count,
         .in_count    = rec_func->in_count,
@@ -293,7 +363,7 @@ cz_func_end(cz_t *cz)
         .var_offset  = cz->abs_func_vars.count,
         .var_count   = rec_func->var_count,
         .code_offset = cz->abs_code.count,
-        .code_count  = rec_func->code_count,
+        .code_count  = code_count,
 
         .in_base  = rec_func->in_offset,
         .var_base = rec_func->var_offset,
@@ -316,7 +386,7 @@ cz_func_end(cz_t *cz)
     }
     cz->rec_func_vars.count = rec_func->var_offset;
 
-    for (u32 i = 0; i < rec_func->code_count; ++i) {
+    for (u32 i = 0; i < code_count; ++i) {
         dck_stretchy_push(cz->abs_code, cz->rec_code.data[rec_func->code_offset + i]);
     }
     cz->rec_code.count = rec_func->code_offset;
@@ -490,10 +560,8 @@ cz_jmp_frame(cz_t *cz, jmp_type_t type, frame_ref_t frame)
         .rec_code_offset = cz->rec_code.count,
     });
 
-    dck_stretchy_push(cz->rec_code, (abs_code_t) {
-        .inst = abs_inst_JmpUc + type,
-        .value = 0xDEADC0DE,
-    });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_JmpUc + type });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = 0xDEADC0DE });
 }
 
 void
@@ -517,9 +585,7 @@ cz_jmp_end(cz_t *cz, jmp_type_t type, scope_ref_t scope)
         .rec_code_offset = cz->rec_code.count,
     });
 
-    dck_stretchy_push(cz->rec_code, (abs_code_t) {
-        .inst = abs_inst_JmpUc + type,
-        .value = 0xDEADC0DE,
-    });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_JmpUc + type });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = 0xDEADC0DE });
 }
 

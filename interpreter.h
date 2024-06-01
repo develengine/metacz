@@ -47,6 +47,13 @@ typedef enum
     VM_INST_COUNT
 } vm_inst_t;
 
+typedef union
+{
+    vm_inst_t inst;
+    u32 u;
+    i32 i;
+} vm_code_t;
+
 typedef struct
 {
     dck_stretchy_t (u32, u32) code;
