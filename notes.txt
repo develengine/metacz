@@ -1,10 +1,47 @@
 
-[ ] How do we implement data for types?
+
+
+
+
+SPEEDRUN:
+[X] Create structure recording functions.
+[X] Create macros for writing instructions and generating functions.
+[X] Finger out scopes/jumps.
+[ ] Implement scopes/jumps.
+
+[ ] Think about how to generalize pointers, so that we can use multiple stretchy buffers.
+  - Probably our favourite, tagged indices.
+  - Or just keep in mind that pointers can get invalidated. (this is normal)
+[ ] Consider how a variable size type stack could make complex types and constant folding possible.
+[ ] We may need to lock function parameters for recursion.
+  [ ] Do we also need some sort of state to make sure things aren't added outside of functions?
+[X] See if we could get the correct function id before finishing it's writing.
+[X] We might want to pull out the type tag into a variable instead of having it a separate entity.
+  - Like `ref_t`.
+
+[ ] Create a procedure for printing the meta code.
+[ ] Implement backpatching.
+[ ] Implement unconditional jump, jump nonzero and jmp LT.
+
+[X] Strip the type stack from the abstract generator and use only the number of elements on it.
+[X] Create some meta instructions to help the context processors with type checking.
+
+Main idea is that code is generated as abstract, and then processed further into a different thing.
+This means that the types also need to be abstract (and shared between all the contexts).
+- This doesn't mean that every context needs to support every type.
+Proper type checking needs to happen later, only basic rules should be implemented whilst generating abstract code.
+
+
+[X] How do we implement data for types?
   - Some types, like arrays, take extra information, (length, sub-type, etc.), how do we handle this?
   - Types are just rules. How do we approach that?
+  - We will see.
 
 - A statement is either just evaluation, or both evaluation and an assignement.
   - Thus, we can break things up into evaluations, and assignements.
+
+We can always implement more complex scopes with per label type flexibility,
+but for now we will only implement the labels such that the space needs to be empty before jump.
 
 Simplest evaluation is pushing something from memory/imm to "stack".
 Simplest assignement is popping something from "stack" to memory.
@@ -12,6 +49,78 @@ Simplest assignement is popping something from "stack" to memory.
 mov stack[top], mem[addr]
 # vs
 mov mem[addr], stack[top]
+
+
+Alignement defines at what address multiple the type can start.
+Size defines how large the type is.
+
+C structures have the size be large enough to tile without spaces (for arrays).
+
+alignement
+size
+tile_size
+
+There are 2 ways to think about alignement.
+Either the alignement is any number, or just a power of 2.
+- In reality it's only a power of 2 we care about.
+
+
+2 things:
+- Prevent type and form splitting on conditionals.
+- Prevent the programmatic accumulation of things on the stack.
+
+Loop:
+[
+  - Here we can jump back to the start, if we want.
+]
+- Here we can no longer jump back to the start.
+
+(
+    ...
+|
+    ...
+|
+    ...
+)
+
+#* simpler *#
+
+scope1 = (
+    jmp_top scope1
+    jmp_bottom scope1
+)
+
+scope1 = (
+    jmp_bottom ze scope1
+)
+
+# Doesn't work
+
+=================
+
+scope1 = {b
+    scope2 = {b
+        jmp-end scope1;
+    |n
+    }e
+|n
+
+}e
+
+
+
+
+{b
+  jmp |n
+  jmp {b
+|n
+}e
+
+
+
+
+
+
 
 
 
