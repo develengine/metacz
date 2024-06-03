@@ -420,16 +420,20 @@ cz_scope_check(cz_t *cz, u32 scope_index)
 scope_ref_t
 cz_scope_begin(cz_t *cz)
 {
+    rec_func_t *func = cz->rec_funcs.data + cz->rec_funcs.count - 1;
+
     u32 end_frame_index = cz->scope_frames.count;
 
-    dck_stretchy_push(cz->scope_frames, (scope_frame_t) {0});
+    dck_stretchy_push(cz->scope_frames, (scope_frame_t) {
+        .label_index = func->next_label_index++,
+    });
 
     u32 scope_index = cz->scopes.count;
 
     dck_stretchy_push(cz->scopes, (scope_t) {
         .frame_offset = end_frame_index,
+        .frame_count  = 1,
         .stack_bottom = cz->type_stack_size,
-        .patch_offset = cz->scope_patches.count,
     });
 
     return (scope_ref_t) {
@@ -440,13 +444,17 @@ cz_scope_begin(cz_t *cz)
 frame_ref_t
 cz_scope_frame(cz_t *cz)
 {
+    rec_func_t *func = cz->rec_funcs.data + cz->rec_funcs.count - 1;
+
     u32 scope_index = cz->scopes.count - 1;
 
     scope_t *scope = cz->scopes.data + scope_index;
 
     u32 child_index = scope->frame_count++;
 
-    dck_stretchy_push(cz->scope_frames, (scope_frame_t) {0});
+    dck_stretchy_push(cz->scope_frames, (scope_frame_t) {
+        .label_index = func->next_label_index++,
+    });
 
     return (frame_ref_t) {
         .scope_index = scope_index,
@@ -477,7 +485,9 @@ cz_scope_frame_link(cz_t *cz, frame_ref_t frame_ref)
     }
 
     frame->is_linked = true;
-    frame->rec_code_offset = cz->rec_code.count;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Label });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = frame->label_index });
 }
 
 void
@@ -497,27 +507,15 @@ cz_scope_end(cz_t *cz)
             return;
     }
 
-    for (u32 patch_i = scope->patch_offset; patch_i < cz->scope_patches.count; ++patch_i) {
-        scope_patch_t patch = cz->scope_patches.data[patch_i];
-        scope_frame_t frame = cz->scope_frames.data[scope->frame_offset + patch.scope_frame_index];
-
-        if (!frame.is_linked) {
-            cz->error = "Scope ending with unlinked used frame";
-            return;
-        }
-
-        abs_code_t *code = cz->rec_code.data + patch.rec_code_offset;
-        code->value = (i32)frame.rec_code_offset - (i32)patch.rec_code_offset;
-    }
-
     cz->scope_frames.count = scope->frame_offset;
-    cz->scope_patches.count = scope->patch_offset;
     cz->scopes.count = scope_index;
 }
 
 static b32
 cz_jmp_check(cz_t *cz, jmp_type_t jmp_type)
 {
+    // FIXME: This should take the scope bottom into consideration.
+
     if (jmp_type == jmp_Uc)
         return true;
 
@@ -543,30 +541,29 @@ cz_jmp_check(cz_t *cz, jmp_type_t jmp_type)
 }
 
 void
-cz_jmp_frame(cz_t *cz, jmp_type_t type, frame_ref_t frame)
+cz_jmp_frame(cz_t *cz, jmp_type_t type, frame_ref_t frame_ref)
 {
     if (!cz_jmp_check(cz, type))
         return;
 
-    scope_t *scope = cz->scopes.data + frame.scope_index;
+    scope_t *scope = cz->scopes.data + frame_ref.scope_index;
 
     if (cz->type_stack_size != scope->stack_bottom) {
         cz->error = "Jump to a frame with excess data on the stack";
         return;
     }
 
-    dck_stretchy_push(cz->scope_patches, (scope_patch_t) {
-        .scope_frame_index = frame.frame_index,
-        .rec_code_offset = cz->rec_code.count,
-    });
+    scope_frame_t *frame = cz->scope_frames.data + scope->frame_offset + frame_ref.frame_index;
 
     dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_JmpUc + type });
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = 0xDEADC0DE });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = frame->label_index });
 }
 
 void
-cz_jmp_end(cz_t *cz, jmp_type_t type, scope_ref_t scope)
+cz_jmp_end(cz_t *cz, jmp_type_t type, scope_ref_t scope_ref)
 {
+    // FIXME: This must be retarded wrong.
+
     if (!cz_jmp_check(cz, type))
         return;
 
@@ -575,17 +572,15 @@ cz_jmp_end(cz_t *cz, jmp_type_t type, scope_ref_t scope)
     if (!cz_scope_check(cz, scope_index))
         return;
 
+    scope_t *scope = cz->scopes.data + scope_index;
+
     if (type == jmp_Uc) {
-        scope_t *scope = cz->scopes.data + scope_index;
         cz->type_stack_size = scope->stack_bottom;
     }
 
-    dck_stretchy_push(cz->scope_patches, (scope_patch_t) {
-        .scope_frame_index = 0,
-        .rec_code_offset = cz->rec_code.count,
-    });
+    scope_frame_t *frame = cz->scope_frames.data + scope->frame_offset;
 
     dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_JmpUc + type });
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = 0xDEADC0DE });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = frame->label_index });
 }
 

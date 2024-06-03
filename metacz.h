@@ -96,6 +96,8 @@ typedef enum
     abs_inst_Call,
     abs_inst_Ret,
 
+    abs_inst_Label,
+
     abs_inst_JmpUc,
     abs_inst_JmpNz,
     abs_inst_JmpZe,
@@ -147,6 +149,8 @@ typedef struct
 
     u32 abs_func_index;
     u32 parent_func_index;
+
+    u32 next_label_index;
 } rec_func_t;
 
 typedef struct
@@ -184,6 +188,7 @@ typedef struct
 
 typedef struct
 {
+    u32 label_index;
     b32 is_linked;
     u32 rec_code_offset;
 } scope_frame_t;
@@ -193,12 +198,6 @@ typedef struct
     u32 scope_index;
     u32 frame_index;
 } frame_ref_t;
-
-typedef struct
-{
-    u32 scope_frame_index;
-    u32 rec_code_offset;
-} scope_patch_t;
 
 typedef struct
 {
@@ -252,7 +251,6 @@ typedef struct
 
     dck_stretchy_t (scope_t,       u32) scopes;
     dck_stretchy_t (scope_frame_t, u32) scope_frames;
-    dck_stretchy_t (scope_patch_t, u32) scope_patches;
 
     u32 type_stack_size;
 
