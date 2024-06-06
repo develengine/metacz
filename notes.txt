@@ -1,7 +1,11 @@
 
 NEO-DEVELOPMENT:
 
-[ ] We need to change the offset based abstract jumps to something else, like labels or somn.
+
+
+
+[X] We need to change the offset based abstract jumps to something else, like labels or somn.
+- 2024/03/06 Done!
 
 - Maybe the frontend and backend could be able to setup the metacz stuff in order to work correctly as well.
   - Basically the backend could setup it's own types so that it can expose them to the user and so on.

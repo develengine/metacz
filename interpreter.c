@@ -60,8 +60,8 @@ vm_push_type(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, type_ref_t type_ref)
     u32 remainder = compiler->allocated_memory % allocation.alignment;
     if (remainder != 0) {
         dck_stretchy_push(vm->code, vm_inst_IncSP);
-        dck_stretchy_push(vm->code, remainder);
-        compiler->allocated_memory += remainder;
+        dck_stretchy_push(vm->code, allocation.alignment - remainder);
+        compiler->allocated_memory += allocation.alignment - remainder;
     }
 
     vm_object_t object = {
@@ -78,11 +78,24 @@ vm_push_type(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, type_ref_t type_ref)
     return object;
 }
 
+static void
+vm_move_sp_to(vm_t *vm, vm_compiler_t *compiler, u32 new_sp)
+{
+    if (compiler->allocated_memory != new_sp) {
+        dck_stretchy_push(vm->code, vm_inst_IncSP);
+        dck_stretchy_reserve(vm->code, 1);
+        i32 sp_offset = (i32)new_sp - (i32)compiler->allocated_memory;
+        *((i32 *)(vm->code.data + vm->code.count++)) = sp_offset;
+
+        compiler->allocated_memory = new_sp;
+    }
+}
+
 static vm_object_t
 vm_pop_object(vm_t *vm, vm_compiler_t *compiler, cz_t *cz)
 {
     vm_object_t object = compiler->objects.data[--(compiler->objects.count)];
-    compiler->allocated_memory = object.prev_mem_off;
+    compiler->allocated_memory -= object.size;
     return object;
 }
 
@@ -121,6 +134,8 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
         switch (code.inst) {
             case abs_inst_Add: /* fallthrough */
             case abs_inst_Sub: {
+                // NOTE: Types need to be tilable.
+
                 ASSERT(eval_offset + 2 <= compiler->allocated_memory);
                 
                 vm_object_t object_r = vm_pop_object(vm, compiler, cz);
@@ -138,20 +153,22 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
                     dck_stretchy_push(vm->code, vm_inst_SubInt);
                 }
 
-                vm_object_t object = vm_push_type(vm, compiler, cz, object_l.type_ref);
+                vm_push_type(vm, compiler, cz, object_l.type_ref);
             } break;
 
             case abs_inst_LoadIn: /* fallthrough */
             case abs_inst_LoadVar: {
                 // TODO: Make work for closures.
 
+                ASSERT(i + 1 < func->code_count);
+                u32 local_index = cz->abs_code.data[func->code_offset + ++i].index;
                 vm_object_t object;
 
                 if (code.inst == abs_inst_LoadIn) {
-                    object = compiler->objects.data[input_offset + code.value - func->in_base];
+                    object = compiler->objects.data[input_offset + local_index - func->in_base];
                 }
                 else {
-                    object = compiler->objects.data[variable_offset + code.value - func->var_base];
+                    object = compiler->objects.data[variable_offset + local_index - func->var_base];
                 }
 
                 vm_object_t new_object = vm_push_type(vm, compiler, cz, object.type_ref);
@@ -180,6 +197,29 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
                 memcpy(vm->code.data + vm->code.count, imm_ptr, object.size);
 
                 vm->code.count += imm_inst_size;
+            } break;
+
+            case abs_inst_StoreIn: /* fallthrough */
+            case abs_inst_StoreVar: {
+                // TODO: Make work for closures.
+
+                ASSERT(i + 1 < func->code_count);
+                u32 local_index = cz->abs_code.data[func->code_offset + ++i].index;
+                vm_object_t object;
+
+                if (code.inst == abs_inst_LoadIn) {
+                    object = compiler->objects.data[input_offset + local_index - func->in_base];
+                }
+                else {
+                    object = compiler->objects.data[variable_offset + local_index - func->var_base];
+                }
+
+                vm_object_t stack_object = compiler->objects.data[--(compiler->objects.count)];
+
+                dck_stretchy_push(vm->code, vm_inst_Store);
+                dck_stretchy_push(vm->code, object.base_offset);
+                dck_stretchy_push(vm->code, stack_object.size);
+                compiler->allocated_memory -= stack_object.size;
             } break;
         }
     }
