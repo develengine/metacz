@@ -94,9 +94,16 @@ typedef struct
 
 typedef struct
 {
+    u32 label_index;
+    u32 absolute_offset;
+} vm_patch_t;
+
+typedef struct
+{
     u32 allocated_memory;
     dck_stretchy_t (vm_object_t, u32) objects;
-    dck_stretchy_t (u32, u32) instruction_offsets;
+    dck_stretchy_t (vm_patch_t,  u32) jump_patches;
+    dck_stretchy_t (vm_patch_t,  u32) label_patches;
 } vm_compiler_t;
 
 u32

@@ -5,7 +5,7 @@
 static void
 vm_align_memory(vm_compiler_t *compiler, u32 alignment)
 {
-    ASSERT(alignement <= 16); // All we care about for now.
+    ASSERT(alignment <= 16); // All we care about for now.
 
     u32 remainder = compiler->allocated_memory % alignment;
 
@@ -131,6 +131,10 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
 
         dck_stretchy_push(compiler->instruction_offsets, vm->code.count);
 
+        vm_object_t object;
+        vm_object_t object_r;
+        vm_object_t object_l;
+
         switch (code.inst) {
             case abs_inst_Add: /* fallthrough */
             case abs_inst_Sub: {
@@ -138,11 +142,11 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
 
                 ASSERT(eval_offset + 2 <= compiler->allocated_memory);
                 
-                vm_object_t object_r = vm_pop_object(vm, compiler, cz);
+                object_r = vm_pop_object(vm, compiler, cz);
                 ASSERT(object_r.type_ref.tag == data_type_Basic); // TODO:
                 ASSERT(object_r.type_ref.index_for_tag == data_basic_Int);
 
-                vm_object_t object_l = vm_pop_object(vm, compiler, cz);
+                object_l = vm_pop_object(vm, compiler, cz);
                 ASSERT(object_l.type_ref.tag == data_type_Basic); // TODO:
                 ASSERT(object_l.type_ref.index_for_tag == data_basic_Int);
 
@@ -162,7 +166,6 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
 
                 ASSERT(i + 1 < func->code_count);
                 u32 local_index = cz->abs_code.data[func->code_offset + ++i].index;
-                vm_object_t object;
 
                 if (code.inst == abs_inst_LoadIn) {
                     object = compiler->objects.data[input_offset + local_index - func->in_base];
@@ -184,7 +187,7 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
                 u32 imm_index = cz->abs_code.data[func->code_offset + ++i].index;
                 immediate_t immediate = cz->immediates.data[imm_index];
 
-                vm_object_t object = vm_push_type(vm, compiler, cz, immediate.type);
+                object = vm_push_type(vm, compiler, cz, immediate.type);
 
                 dck_stretchy_push(vm->code, vm_inst_LoadImm);
                 dck_stretchy_push(vm->code, object.size);
@@ -205,7 +208,6 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
 
                 ASSERT(i + 1 < func->code_count);
                 u32 local_index = cz->abs_code.data[func->code_offset + ++i].index;
-                vm_object_t object;
 
                 if (code.inst == abs_inst_LoadIn) {
                     object = compiler->objects.data[input_offset + local_index - func->in_base];
@@ -220,6 +222,32 @@ vm_compile(vm_t *vm, vm_compiler_t *compiler, cz_t *cz, func_ref_t func_ref)
                 dck_stretchy_push(vm->code, object.base_offset);
                 dck_stretchy_push(vm->code, stack_object.size);
                 compiler->allocated_memory -= stack_object.size;
+            } break;
+
+            case abs_inst_Label: {
+                ASSERT(i + 1 < func->code_count);
+                u32 label_index = cz->abs_code.data[func->code_offset + ++i].index;
+
+                for (u32 jp_i = 0; jp_i < compiler->jump_patches.count; ++jp_i) {
+                    vm_patch_t patch = compiler->jump_patches.data[jp_i];
+
+                    
+                }
+            } break;
+
+            case abs_inst_JmpGe: /* fallthrough */
+            case abs_inst_JmpLe: /* fallthrough */
+            case abs_inst_JmpGt: /* fallthrough */
+            case abs_inst_JmpLt: /* fallthrough */
+            case abs_inst_JmpNe: /* fallthrough */
+            case abs_inst_JmpEq: /* fallthrough */
+                object_l = vm_pop_object(vm, compiler, cz);
+            case abs_inst_JmpZe: /* fallthrough */
+            case abs_inst_JmpNz: /* fallthrough */
+                object_r = vm_pop_object(vm, compiler, cz);
+            case abs_inst_JmpUc: {
+                ASSERT(i + 1 < func->code_count);
+                u32 label_index = cz->abs_code.data[func->code_offset + ++i].index;
             } break;
         }
     }

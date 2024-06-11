@@ -7,7 +7,7 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +36 main.c
+badd +37 main.c
 badd +1 notes.txt
 badd +588 metacz.c
 badd +221 metacz.h
@@ -197,12 +197,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 138 - ((19 * winheight(0) + 23) / 46)
+let s:l = 234 - ((31 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-138
-normal! 0
+234
+normal! 020|
 wincmd w
 argglobal
 if bufexists("interpreter.h") | buffer interpreter.h | else | edit interpreter.h | endif
@@ -215,12 +215,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 98 - ((38 * winheight(0) + 23) / 46)
+let s:l = 104 - ((37 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-98
-normal! 05|
+104
+normal! 0
 wincmd w
 exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
 exe 'vert 2resize ' . ((&columns * 104 + 105) / 210)
@@ -249,12 +249,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 203 - ((35 * winheight(0) + 23) / 46)
+let s:l = 231 - ((30 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-203
-normal! 0
+231
+normal! 036|
 wincmd w
 argglobal
 if bufexists("metacz.h") | buffer metacz.h | else | edit metacz.h | endif
@@ -267,11 +267,11 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 93 - ((27 * winheight(0) + 23) / 46)
+let s:l = 215 - ((1 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-93
+215
 normal! 0
 wincmd w
 exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
