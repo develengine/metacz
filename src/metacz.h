@@ -9,8 +9,8 @@
 typedef enum
 {
     data_type_Basic,
-    data_type_Struct,
     data_type_Array,
+    data_type_Struct,
 
     DATA_TYPE_TAG_COUNT
 } data_type_tag_t;
@@ -44,24 +44,9 @@ basic_name(data_basic_t basic)
 
 typedef struct
 {
-    type_ref_t data_type;
-    u32 struct_offset;
-} data_struct_ent_t;
-
-typedef struct
-{
-    u32 alignment;
-    u32 size;
-    u32 tile_size;
-    u32 entry_offset;
-    u32 entry_count;
-} data_struct_t;
-
-typedef struct
-{
     type_ref_t type;
     u32 length;
-} data_array_t;
+} type_array_t;
 
 typedef enum
 {
@@ -78,35 +63,49 @@ typedef enum
     JMP_TYPE_COUNT
 } jmp_type_t;
 
-typedef enum
+typedef enum //              stack:
 {
-    abs_inst_Add,
-    abs_inst_Sub,
+    abs_inst_Add,            // (a, b) -> (c)
+    abs_inst_Sub,            // (a, b) -> (c)
 
-    abs_inst_LoadIn,
-    abs_inst_LoadVar,
-    abs_inst_LoadImm,
-    abs_inst_LoadGlobal,
+    abs_inst_LoadIn,         // () -> (a)
+    abs_inst_LoadVar,        // () -> (a)
+    abs_inst_LoadImm,        // () -> (a)
+    abs_inst_LoadGlobal,     // () -> (a)
 
-    abs_inst_StoreIn,
-    abs_inst_StoreVar,
-    abs_inst_StoreImm,
-    abs_inst_StoreGlobal,
+    abs_inst_StoreIn,        // (a) -> ()
+    abs_inst_StoreVar,       // (a) -> ()
+    abs_inst_StoreImm,       // (a) -> ()
+    abs_inst_StoreGlobal,    // (a) -> ()
+
+    abs_inst_LoadRefIn,      // () -> (&a)
+    abs_inst_LoadRefVar,     // () -> (&a)
+    abs_inst_LoadRefGlobal,  // () -> (&a)
+
+    abs_inst_StoreRefIn,     // (&a, a) -> ()
+    abs_inst_StoreRefVar,    // (&a, a) -> ()
+    abs_inst_StoreRefGlobal, // (&a, a) -> ()
+
+    abs_inst_ArrRead,        // ([&arr<a>], [int])    -> (&a)
+    abs_inst_ArrWrite,       // ([&arr<a>], [int], a) -> ()
+    abs_inst_ArrLength,      // ([&arr<a>])           -> ([int])
+
+    abs_inst_Deref,          // (&a) -> (a)
 
     abs_inst_Call,
     abs_inst_Ret,
 
-    abs_inst_Label,
+    abs_inst_Label,          // ()
 
-    abs_inst_JmpUc,
-    abs_inst_JmpNz,
-    abs_inst_JmpZe,
-    abs_inst_JmpEq,
-    abs_inst_JmpNe,
-    abs_inst_JmpLt,
-    abs_inst_JmpGt,
-    abs_inst_JmpLe,
-    abs_inst_JmpGe,
+    abs_inst_JmpUc,          // ()
+    abs_inst_JmpNz,          // (a)
+    abs_inst_JmpZe,          // (a)
+    abs_inst_JmpEq,          // (a, b)
+    abs_inst_JmpNe,          // (a, b)
+    abs_inst_JmpLt,          // (a, b)
+    abs_inst_JmpGt,          // (a, b)
+    abs_inst_JmpLe,          // (a, b)
+    abs_inst_JmpGe,          // (a, b)
 
     ABS_INST_COUNT
 } abs_inst_t;
@@ -230,12 +229,10 @@ typedef struct
 
 typedef struct
 {
-    dck_stretchy_t (data_struct_ent_t, u32) data_struct_ents;
-    dck_stretchy_t (data_struct_t,     u32) data_structs;
-    dck_stretchy_t (data_array_t,      u32) data_arrays;
-
     arena_t imm_data;
     dck_stretchy_t (immediate_t, u32) immediates;
+
+    dck_stretchy_t (type_array_t, u32) array_types;
 
     dck_stretchy_t (abs_code_t, u32) abs_code;
     dck_stretchy_t (type_ref_t, u32) abs_func_ins;
@@ -279,6 +276,9 @@ do { \
 void
 type_printf(cz_t *cz, type_ref_t type, u32 depth);
 
+type_ref_t
+cz_make_type_array(cz_t *cz, type_ref_t type, u32 length);
+
 #define CZ_ADD() \
 do { \
     cz_code_add(cz); \
@@ -294,6 +294,22 @@ do { \
 } while(0)
 void
 cz_code_sub(cz_t *cz);
+
+#define CZ_READ() \
+do { \
+    cz_code_arr_read(cz); \
+    CZ_ERROR_CHECK(); \
+} while (0)
+void
+cz_code_arr_read(cz_t *cz);
+
+#define CZ_WRITE() \
+do { \
+    cz_code_arr_write(cz); \
+    CZ_ERROR_CHECK(); \
+} while (0)
+void
+cz_code_arr_write(cz_t *cz);
 
 #define CZ_LOAD_IMM(m_imm) \
 do { \

@@ -1,4 +1,7 @@
 model
 *.exe
 *.obj
+tests
+build
+build.old
 

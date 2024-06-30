@@ -1,4 +1,5 @@
 #include "metacz.h"
+#include "interpreter.h"
 
 func_ref_t
 f_add_nums(cz_t *cz)
@@ -25,11 +26,9 @@ f_do_thing(cz_t *cz)
             scope_ref_t _scope = cz_scope_begin(cz);
             frame_ref_t __is_small = cz_scope_frame(cz);
         /**/
-            CZ_LOAD(in);
-            CZ_LOAD_IMM(5);
-            CZ_JMP(Lt, __is_small);
+            CZ_LOAD(in); CZ_LOAD_IMM(5); CZ_JMP(Lt, __is_small);
                 CZ_LOAD_IMM(1);
-            CZ_JMP_END(Uc, _scope);
+                CZ_JMP_END(Uc, _scope);
             CZ_LINK(__is_small);
                 CZ_LOAD_IMM(0);
             CZ_END();
@@ -46,6 +45,29 @@ main(void)
     func_ref_t proc_index_2 = f_do_thing(&cz);
 
     cz_debug_dump(&cz);
+
+    vm_t vm = {0};
+    vm_compiler_t compiler = {0};
+
+    printf("\nproc 1:\n");
+    u32 code_offset = vm_compile(&vm, &compiler, &cz, proc_index);
+    vm_disassemble(&vm, &cz, code_offset);
+
+    vm_clear(&vm);
+    VM_PUSH(&vm, i32, &(i32) { 5 });
+    VM_PUSH(&vm, i32, &(i32) { 3 });
+    vm_execute(&vm, &cz, code_offset);
+    int res = *VM_GET(&vm, i32);
+    printf("res = %d\n", res);
+
+    printf("\nproc 2:\n");
+    u32 code_offset_2 = vm_compile(&vm, &compiler, &cz, proc_index_2);
+    vm_disassemble(&vm, &cz, code_offset_2);
+
+    vm_clear(&vm);
+    VM_PUSH(&vm, i32, &res);
+    vm_execute(&vm, &cz, code_offset_2);
+    printf("res = %d\n", *VM_GET(&vm, i32));
 
     printf("\\_/\n V\n");
     return 0;

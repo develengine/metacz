@@ -6,6 +6,7 @@
 #define DCK_H
 
 #include <stdlib.h>
+#include <stdio.h>
 
 
 #define dck_stretchy_t(data_type, size_type) struct { data_type *data; size_type count, capacity; }

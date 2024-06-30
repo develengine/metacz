@@ -53,7 +53,7 @@ cz_debug_dump(cz_t *cz)
 
         printf("\n");
 
-        for (i32 code_index = 0; code_index < func->code_count; ++code_index) {
+        for (u32 code_index = 0; code_index < func->code_count; ++code_index) {
             abs_code_t code = cz->abs_code.data[func->code_offset + code_index];
             switch (code.inst) {
                 case abs_inst_Add:
@@ -96,6 +96,15 @@ cz_debug_dump(cz_t *cz)
                     printf("     store global %d\n",
                            cz->abs_code.data[func->code_offset + ++code_index].value);
                     break;
+                case abs_inst_ArrRead:
+                    printf("     array read\n");
+                    break;
+                case abs_inst_ArrWrite:
+                    printf("     array write\n");
+                    break;
+                case abs_inst_ArrLength:
+                    printf("     array length\n");
+                    break;
                 case abs_inst_Call:
                     printf("     call %d\n",
                            cz->abs_code.data[func->code_offset + ++code_index].value);
@@ -107,28 +116,28 @@ cz_debug_dump(cz_t *cz)
                     printf("     label %d\n",
                            cz->abs_code.data[func->code_offset + ++code_index].value);
                     break;
-                case abs_inst_JmpUc: /* fallthrough */
+                case abs_inst_JmpUc:
                     printf("     jmp uc ");
                     goto jmp_fin;
-                case abs_inst_JmpNz: /* fallthrough */
+                case abs_inst_JmpNz:
                     printf("     jmp nz ");
                     goto jmp_fin;
-                case abs_inst_JmpZe: /* fallthrough */
+                case abs_inst_JmpZe:
                     printf("     jmp ze ");
                     goto jmp_fin;
-                case abs_inst_JmpEq: /* fallthrough */
+                case abs_inst_JmpEq:
                     printf("     jmp eq ");
                     goto jmp_fin;
-                case abs_inst_JmpNe: /* fallthrough */
+                case abs_inst_JmpNe:
                     printf("     jmp ne ");
                     goto jmp_fin;
-                case abs_inst_JmpLt: /* fallthrough */
+                case abs_inst_JmpLt:
                     printf("     jmp lt ");
                     goto jmp_fin;
-                case abs_inst_JmpGt: /* fallthrough */
+                case abs_inst_JmpGt:
                     printf("     jmp gt ");
                     goto jmp_fin;
-                case abs_inst_JmpLe: /* fallthrough */
+                case abs_inst_JmpLe:
                     printf("     jmp le ");
                     goto jmp_fin;
                 case abs_inst_JmpGe:
@@ -136,6 +145,7 @@ cz_debug_dump(cz_t *cz)
                 jmp_fin:
                     printf("%d\n", cz->abs_code.data[func->code_offset + ++code_index].value);
                     break;
+                case ABS_INST_COUNT: UNREACHABLE();
             }
         }
     }
@@ -144,6 +154,8 @@ cz_debug_dump(cz_t *cz)
 void
 type_printf(cz_t *cz, type_ref_t type, u32 depth)
 {
+    (void)cz;
+
     for (u32 i = 0; i < depth; ++i) {
         printf("  ");
     }
@@ -158,58 +170,33 @@ type_printf(cz_t *cz, type_ref_t type, u32 depth)
 }
 
 type_ref_t
+cz_make_type_array(cz_t *cz, type_ref_t type, u32 length)
+{
+    u32 index = cz->array_types.count;
+
+    dck_stretchy_push(cz->array_types, (type_array_t) {
+        .type   = type,
+        .length = length,
+    });
+
+    return (type_ref_t) {
+        .tag           = data_type_Array,
+        .index_for_tag = index,
+    };
+}
+
+type_ref_t
 cz_ref_type(cz_t *cz, ref_t ref)
 {
     switch (ref.tag) {
         case abs_ref_Var:    return cz->rec_func_vars.data[ref.index_for_tag];
         case abs_ref_In:     return cz->rec_func_ins.data [ref.index_for_tag];
-        case abs_ref_Global: return cz->rec_func_outs.data[ref.index_for_tag];
+        case abs_ref_Global: return cz->rec_func_outs.data[ref.index_for_tag]; // FIXME: WHAT?
 
         case ABS_INST_REF_COUNT: UNREACHABLE();
     }
 
     UNREACHABLE();
-}
-
-type_ref_t
-cz_struct_begin(cz_t *cz)
-{
-    u32 struct_index = cz->data_structs.count;
-
-    dck_stretchy_push(cz->data_structs, (data_struct_t) {
-        .entry_offset = cz->data_struct_ents.count,
-    });
-
-    return (type_ref_t) {
-        .tag           = data_type_Struct,
-        .index_for_tag = struct_index,
-    };
-}
-
-u32
-cz_struct_ent(cz_t *cz, type_ref_t data_type)
-{
-    data_struct_t *structure = cz->data_structs.data + cz->data_structs.count - 1;
-
-    dck_stretchy_push(cz->data_struct_ents, (data_struct_ent_t) {
-        .data_type     = data_type,
-        .struct_offset = 0, // TODO:
-    });
-
-    return structure->entry_count++;
-}
-
-void
-cz_struct_end(cz_t *cz)
-{
-    (void)cz;
-    // TODO: Finalize something?
-}
-
-u32
-cz_array_create(cz_t *cz, type_ref_t data_type, u32 size)
-{
-    return CZ_NO_ID; // TODO:
 }
 
 func_ref_t
@@ -287,6 +274,32 @@ cz_code_sub(cz_t *cz)
     cz->type_stack_size--;
 
     dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Sub });
+}
+
+void
+cz_code_arr_read(cz_t *cz)
+{
+    if (cz->type_stack_size < 2) {
+        cz->error = "Array read with less than 2 items on the stack";
+        return;
+    }
+
+    cz->type_stack_size--;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrRead });
+}
+
+void
+cz_code_arr_write(cz_t *cz)
+{
+    if (cz->type_stack_size < 3) {
+        cz->error = "Array write with less than 3 items on the stack";
+        return;
+    }
+
+    cz->type_stack_size -= 3;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrWrite });
 }
 
 void
@@ -589,6 +602,8 @@ cz_jmp_end(cz_t *cz, jmp_type_t type, scope_ref_t scope_ref)
         return;
 
     u32 scope_index = cz->scopes.count - 1;
+
+    ASSERT(scope_index == scope_ref.scope_index);
 
     if (!cz_scope_check(cz, scope_index))
         return;

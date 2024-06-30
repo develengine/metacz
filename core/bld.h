@@ -25,6 +25,10 @@
 
     typedef struct timespec file_time_t;
 #else // !defined(_WIN32)
+    #include <windows.h>
+
+    typedef HANDLE   pid_t;
+    typedef FILETIME file_time_t;
 #endif // !defined(_WIN32)
 
 
@@ -40,6 +44,13 @@ typedef struct
     size_t count, capacity;
 } bld_sa_t;
 
+typedef enum
+{
+    bld_path_None      = (1 << 0),
+    bld_path_File      = (1 << 1),
+    bld_path_Directory = (1 << 2),
+} bld_path_info_t;
+
 
 int
 bld_wait_for_multiple(pid_t *pids, int count);
@@ -49,6 +60,15 @@ bld_wait_for(pid_t pid);
 
 int
 bld_exists(const char *path);
+
+unsigned
+bld_get_path_info(const char *path);
+
+int
+bld_directory_create(const char *path);
+
+void
+bld_directory_assure(const char *path);
 
 int
 bld_file_time_cmp(file_time_t a, file_time_t b);
@@ -191,6 +211,10 @@ bld_sa_push_multiple_nt(bld_sa_t *sa, char **data);
                              "no-deprecated-declarations", "no-missing-field-initializers", \
                              "no-missing-braces"
 
+#if !defined(_WIN32)
+    #define BLD_WARNINGS BLD_GCC_WARNINGS
+#endif
+
 
 #define BLD_STRETCHY_T(data_type, size_type) struct { data_type *data; size_type count, capacity; }
 
@@ -236,7 +260,6 @@ do { \
 #if defined(BLD_IMPLEMENTATION)
 
 #if !defined(_WIN32)
-
 
 int
 bld_wait_for(pid_t pid)
@@ -284,34 +307,39 @@ bld_execute_str_async(const char *str)
     return pid;
 }
 
-pid_t
-bld_execute_vargs_async(const char *fmt, va_list args)
-{
-    va_list args_copy;
-    va_copy(args_copy, args);
-
-    int to_write = vsnprintf(NULL, 0, fmt, args);
-    va_end(args);
-
-    char *buffer = malloc(to_write + 1);
-    assert(buffer);
-
-    int written = vsnprintf(buffer, to_write + 1, fmt, args_copy);
-    va_end(args_copy);
-
-    assert(written == to_write);
-
-    pid_t pid = bld_execute_str_async(buffer);
-
-    free(buffer);
-
-    return pid;
-}
-
 int
 bld_exists(const char *path)
 {
     return access(path, F_OK) == 0;
+}
+
+unsigned
+bld_get_path_info(const char *path)
+{
+    struct stat s;
+
+    if (stat(path, &s) != 0)
+        return bld_path_None;
+
+    unsigned res = 0;
+
+    if (S_ISDIR(s.st_mode)) {
+        res |= bld_path_Directory;
+    }
+    else if (S_ISREG(s.st_mode)) {
+        res |= bld_path_File;
+    }
+}
+
+int
+bld_directory_create(const char *path)
+{
+    if (mkdir(path, 0777)) {
+        fprintf(stderr, "mkdir(): %s\n", strerror(errno));
+        return 0;
+    }
+
+    return 1;
 }
 
 pid_t
@@ -438,9 +466,355 @@ bld_run_vargs_async(const char *name, const char *fmt, va_list args)
 
 #else // !defined(_WIN32)
 
+int
+bld_wait_for(pid_t pid)
+{
+    if (WaitForSingleObject(pid, INFINITE) == WAIT_FAILED) {
+        fprintf(stderr, "WaitForSingleObject(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    int code;
+
+    if (!GetExitCodeProcess(pid, &code)) {
+        fprintf(stderr, "GetExitCodeProcess(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    return code;
+}
+
+int
+bld_wait_for_multiple(pid_t *pids, int count)
+{
+    if (WaitForMultipleObjects(count, pids, TRUE, INFINITE) == WAIT_FAILED) {
+        fprintf(stderr, "WaitForMultipleObjects(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < count; ++i) {
+        int code;
+
+        if (!GetExitCodeProcess(pids[i], &code)) {
+            fprintf(stderr, "GetExitCodeProcess(): (%d)\n", GetLastError());
+            exit(EXIT_FAILURE);
+        }
+
+        if (code)
+            return code;
+    }
+
+    return 0;
+}
+
+pid_t
+bld_execute_str_async(const char *str)
+{
+    char *buffer = bld_strf("cmd.exe /c \"%s\"", str);
+
+    STARTUPINFO startup_info = {0};
+    startup_info.cb = sizeof(startup_info);
+
+    PROCESS_INFORMATION process_info = {0};
+
+    if (!CreateProcessA(
+        "C:\\Windows\\System32\\cmd.exe",
+        buffer,
+        NULL, NULL,
+        FALSE,
+        0,
+        NULL, NULL,
+        &startup_info,
+        &process_info))
+    {
+        fprintf(stderr, "CreateProcessA(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    free(buffer);
+
+    return process_info.hProcess;
+}
+
+pid_t
+bld_execute_argv_async(char *argv[])
+{
+    int size = 0;
+    int count = 0;
+
+    for (int i = 0; argv[i]; ++i, ++count) {
+        size += strlen(argv[i]) + 1;
+    }
+
+    char *buffer = malloc(size);
+    assert(buffer);
+
+    int pos = 0;
+
+    for (int i = 0; i < count; ++i) {
+        int len = strlen(argv[i]);
+        memcpy(buffer + pos, argv[i], len);
+        buffer[pos + len] = (i == count - 1 ? '\0' : ' ');
+        pos += len + 1;
+    }
+
+    STARTUPINFO startup_info = {0};
+    startup_info.cb = sizeof(startup_info);
+
+    PROCESS_INFORMATION process_info = {0};
+
+    if (!CreateProcessA(
+        NULL,
+        buffer,
+        NULL, NULL,
+        FALSE,
+        0,
+        NULL, NULL,
+        &startup_info,
+        &process_info))
+    {
+        fprintf(stderr, "CreateProcessA(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    return process_info.hProcess;
+}
+
+int
+bld_exists(const char *path)
+{
+    WIN32_FIND_DATAA data = {0};
+
+    HANDLE handle = FindFirstFileA(path, &data);
+
+    if (handle == INVALID_HANDLE_VALUE) {
+        int err = GetLastError();
+
+        if (err == ERROR_FILE_NOT_FOUND)
+            return 0;
+
+        fprintf(stderr, "FindFirstFileA(%s): (%d)\n", path, err);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!FindClose(handle)) {
+        fprintf(stderr, "FindClose(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    return 1;
+}
+
+unsigned
+bld_get_path_info(const char *path)
+{
+    unsigned ret = GetFileAttributesA(path);
+
+    if (ret == INVALID_FILE_ATTRIBUTES)
+        return bld_path_None;
+
+    unsigned res = 0;
+
+    if (ret & FILE_ATTRIBUTE_DIRECTORY) {
+        res |= bld_path_Directory;
+    } else {
+        res |= bld_path_File;
+    }
+
+    return res;
+}
+
+int
+bld_directory_create(const char *path)
+{
+    int res = CreateDirectoryA(path, NULL);
+
+    if (!res) {
+        fprintf(stderr, "CreateDirectoryA(): (%d)\n", GetLastError());
+    }
+
+    return res != 0;
+}
+
+int
+bld_file_time_cmp(file_time_t a, file_time_t b)
+{
+    return CompareFileTime(&a, &b);
+}
+
+file_time_t
+bld_mod_time(const char *path)
+{
+    WIN32_FIND_DATAA data = {0};
+
+    HANDLE handle = FindFirstFileA(path, &data);
+
+    if (handle == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, "FindFirstFileA(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    if (!FindClose(handle)) {
+        fprintf(stderr, "FindClose(): (%d)\n", GetLastError());
+        exit(EXIT_FAILURE);
+    }
+
+    return data.ftLastWriteTime;
+}
+
+pid_t
+bld_cc_params_async(const char **params, int param_count)
+{
+    bld_sb_t sb = {0};
+
+    bld_sb_append(&sb, "cl");
+
+    for (int i = 0; i < param_count; ++i) {
+        if (bld_str_eq(params[i], "-o")) {
+            if (++i < param_count) {
+                bld_sb_append(&sb, " /Fe");
+                bld_sb_append(&sb, params[i]);
+            }
+            continue;
+        }
+
+        int len = strlen(params[i]);
+
+        if (len > 3 && params[i][0] == '-') {
+            if (params[i][1] == 'l') {
+                bld_sb_append(&sb, " ");
+                bld_sb_append(&sb, params[i] + 2);
+                continue;
+            }
+
+            if (params[i][1] == 'I') {
+                bld_sb_append(&sb, " /I");
+                bld_sb_append(&sb, params[i] + 2);
+                continue;
+            }
+
+            if (params[i][1] == 'D') {
+                bld_sb_append(&sb, " /D");
+                bld_sb_append(&sb, params[i] + 2);
+                continue;
+            }
+
+            if (params[i][1] == 'W') {
+                bld_sb_append(&sb, " /W");
+                bld_sb_append(&sb, params[i] + 2);
+                continue;
+            }
+
+            if (params[i][1] == 'R') {
+                bld_sb_append(&sb, " ");
+                bld_sb_append(&sb, params[i] + 2);
+                continue;
+            }
+
+        }
+
+        bld_sb_append(&sb, " ");
+        bld_sb_append(&sb, params[i]);
+    }
+
+    pid_t pid = bld_execute_str_async(sb.data);
+
+    free(sb.data);
+
+    return pid;
+}
+
+pid_t
+bld_run_argv_async(const char *name, char *argv[])
+{
+    char *prog = bld_strf("%s.exe");
+
+    BLD_STRETCHY_T (const char *, int) new_argv = {0};
+
+    BLD_STRETCHY_PUSH(new_argv, prog);
+
+    for (int i = 0; argv[i]; ++i) {
+        BLD_STRETCHY_PUSH(new_argv, argv[i]);
+    }
+
+    BLD_STRETCHY_PUSH(new_argv, NULL);
+
+
+    pid_t pid = bld_execute_argv_async((char**)new_argv.data);
+
+    free(prog);
+    free(new_argv.data);
+
+    return pid;
+}
+
+pid_t
+bld_run_str_async(const char *name, const char *str)
+{
+    char *new_str = bld_strf("%s.exe %s", name, str);
+
+    pid_t pid = bld_execute_str_async(new_str);
+
+    free(new_str);
+
+    return pid;
+}
+
+pid_t
+bld_run_vargs_async(const char *name, const char *fmt, va_list args)
+{
+    char *new_fmt = bld_strf("%s.exe %s", name, fmt);
+
+    pid_t pid = bld_execute_vargs_async(new_fmt, args);
+
+    free(new_fmt);
+
+    return pid;
+}
 
 #endif // !defined(_WIN32)
 
+
+void
+bld_directory_assure(const char *path)
+{
+    unsigned ret = bld_get_path_info(path);
+
+    if (ret & bld_path_None) {
+        if (!bld_directory_create(path)) {
+            fprintf(stderr, "Failed to create the directory! \"%s\"\n", path);
+            exit(1);
+        }
+    }
+    else if (ret & bld_path_File) {
+        fprintf(stderr, "Path already exists as a file! \"%s\"\n", path);
+        exit(1);
+    }
+}
+
+pid_t
+bld_execute_vargs_async(const char *fmt, va_list args)
+{
+    va_list args_copy;
+    va_copy(args_copy, args);
+
+    int to_write = vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+
+    char *buffer = malloc(to_write + 1);
+    assert(buffer);
+
+    int written = vsnprintf(buffer, to_write + 1, fmt, args_copy);
+    va_end(args_copy);
+
+    assert(written == to_write);
+
+    pid_t pid = bld_execute_str_async(buffer);
+
+    free(buffer);
+
+    return pid;
+}
 
 int
 bld_execute_argv(char *argv[])

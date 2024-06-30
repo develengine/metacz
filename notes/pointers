@@ -1,0 +1,39 @@
+
+Pointer:
+- An object in metacz.
+- Can have a type associated with it.
+- Can have arithmetic operations done on it.
+- Can be dereferenced.
+
+Reasons why we may not want pointers in base metacz:
+- Some simple examples of interpreters may not have an easy way of supporting them.
+- But basic structure manipulation really makes sense only through something like a pointer.
+  - In memory that is.
+  - Maybe for structure addressing some different reference system can be introduced.
+
+
+Pointers are necessary for amd64 intercommunication.
+
+So how would a "standard" work in metacz?
+- Standard should define:
+  - Objects, Procedures and platform specific details of implementation.
+
+This way things like pointers could have different standards for each platform.
+
+Let's start like this... What is the simplest and most direct way of doing it on amd64 and our interpreter?
+- We pass the pointer to the vm stack as parameter, and implement special instructions that work with these pointers.
+  - This requires some standard way of providing a way to fill this memory.
+    - The calling C code should also have some interface to write into the memory and provide the pointer.
+
+u8 *in_mem = vm_call_init(vm, cz, func_ref);
+*(i32*)(in_mem) = 123;
+u8 *out_mem = vm_call_execute(vm, cz, func_ref);
+
+This way the frontend is responsible for calling the backend directly.
+- Not sure this is desirable.
+- Maybe this is only necessary in the bootstrap stage and since the backend is fully responsible for interpreting the metacz code
+  this problem will disappear in a unified metacz environment.
+
+When the compiler is self hosted, we can simply recompile it with the use of a different backend that has the same metacz API.
+
+

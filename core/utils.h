@@ -50,6 +50,15 @@
 #endif
 
 
+#if defined(COMPILER_MSVC)
+    #define FMT_U64 "%llu"
+    #define FMT_I64 "%lld"
+    #define FMT_X64 "%llx"
+#else
+    #define FMT_U64 "%lu"
+    #define FMT_I64 "%ld"
+    #define FMT_X64 "%lx"
+#endif
 
 
 #include <stdint.h>
