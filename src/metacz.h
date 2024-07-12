@@ -42,6 +42,12 @@ basic_name(data_basic_t basic)
 
 #define CZ_BASIC_TYPE(m_label) ((type_ref_t) { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label })
 
+#define CZ_BASIC_VAR(m_label) ((variable_t) { .type = { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label } })
+#define CZ_BASIC_REF(m_label) ((variable_t) { .type = { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label }, .is_reference = true })
+
+#define CZ_VAR(m_type) ((variable_t) { .type = (m_type) })
+#define CZ_REF(m_type) ((variable_t) { .type = (m_type), .is_reference = true })
+
 typedef struct
 {
     type_ref_t type;
@@ -82,30 +88,27 @@ typedef enum //              stack:
     abs_inst_LoadRefVar,     // () -> (&a)
     abs_inst_LoadRefGlobal,  // () -> (&a)
 
-    abs_inst_StoreRefIn,     // (&a, a) -> ()
-    abs_inst_StoreRefVar,    // (&a, a) -> ()
-    abs_inst_StoreRefGlobal, // (&a, a) -> ()
+    abs_inst_StoreRef,       // (a, &a) -> ()
 
-    abs_inst_ArrRead,        // ([&arr<a>], [int])    -> (&a)
-    abs_inst_ArrWrite,       // ([&arr<a>], [int], a) -> ()
-    abs_inst_ArrLength,      // ([&arr<a>])           -> ([int])
+    abs_inst_ArrRead,        // ([int], [&arr<a>]) -> (&a)
+    abs_inst_ArrLength,      // ([&arr<a>])        -> ([int])
 
     abs_inst_Deref,          // (&a) -> (a)
 
-    abs_inst_Call,
-    abs_inst_Ret,
+    abs_inst_Call,           // ... -> ...
+    abs_inst_Ret,            // () -> ()
 
-    abs_inst_Label,          // ()
+    abs_inst_Label,          // () -> ()
 
-    abs_inst_JmpUc,          // ()
-    abs_inst_JmpNz,          // (a)
-    abs_inst_JmpZe,          // (a)
-    abs_inst_JmpEq,          // (a, b)
-    abs_inst_JmpNe,          // (a, b)
-    abs_inst_JmpLt,          // (a, b)
-    abs_inst_JmpGt,          // (a, b)
-    abs_inst_JmpLe,          // (a, b)
-    abs_inst_JmpGe,          // (a, b)
+    abs_inst_JmpUc,          // ()     -> ()
+    abs_inst_JmpNz,          // (a)    -> ()
+    abs_inst_JmpZe,          // (a)    -> ()
+    abs_inst_JmpEq,          // (a, b) -> ()
+    abs_inst_JmpNe,          // (a, b) -> ()
+    abs_inst_JmpLt,          // (a, b) -> ()
+    abs_inst_JmpGt,          // (a, b) -> ()
+    abs_inst_JmpLe,          // (a, b) -> ()
+    abs_inst_JmpGe,          // (a, b) -> ()
 
     ABS_INST_COUNT
 } abs_inst_t;
@@ -229,21 +232,27 @@ typedef struct
 
 typedef struct
 {
+    type_ref_t type;
+    b32 is_reference;
+} variable_t;
+
+typedef struct
+{
     arena_t imm_data;
     dck_stretchy_t (immediate_t, u32) immediates;
 
     dck_stretchy_t (type_array_t, u32) array_types;
 
     dck_stretchy_t (abs_code_t, u32) abs_code;
-    dck_stretchy_t (type_ref_t, u32) abs_func_ins;
-    dck_stretchy_t (type_ref_t, u32) abs_func_outs;
-    dck_stretchy_t (type_ref_t, u32) abs_func_vars;
+    dck_stretchy_t (variable_t, u32) abs_func_ins;
+    dck_stretchy_t (variable_t, u32) abs_func_outs;
+    dck_stretchy_t (variable_t, u32) abs_func_vars;
     dck_stretchy_t (abs_func_t, u32) abs_funcs;
 
     dck_stretchy_t (abs_code_t, u32) rec_code;
-    dck_stretchy_t (type_ref_t, u32) rec_func_ins;
-    dck_stretchy_t (type_ref_t, u32) rec_func_outs;
-    dck_stretchy_t (type_ref_t, u32) rec_func_vars;
+    dck_stretchy_t (variable_t, u32) rec_func_ins;
+    dck_stretchy_t (variable_t, u32) rec_func_outs;
+    dck_stretchy_t (variable_t, u32) rec_func_vars;
     dck_stretchy_t (rec_func_t, u32) rec_funcs;
 
     dck_stretchy_t (scope_t,       u32) scopes;
@@ -276,6 +285,14 @@ do { \
 void
 type_printf(cz_t *cz, type_ref_t type, u32 depth);
 
+void
+cz_code_call_func(cz_t *cz, func_ref_t func_ref);
+#define CZ_CALL(m_func_ref) \
+do { \
+    cz_code_call_func(cz, m_func_ref); \
+    CZ_ERROR_CHECK(cz); \
+} while (0)
+
 type_ref_t
 cz_make_type_array(cz_t *cz, type_ref_t type, u32 length);
 
@@ -303,13 +320,13 @@ do { \
 void
 cz_code_arr_read(cz_t *cz);
 
-#define CZ_WRITE() \
+#define CZ_LENGTH() \
 do { \
-    cz_code_arr_write(cz); \
+    cz_code_arr_length(cz); \
     CZ_ERROR_CHECK(); \
 } while (0)
 void
-cz_code_arr_write(cz_t *cz);
+cz_code_arr_length(cz_t *cz);
 
 #define CZ_LOAD_IMM(m_imm) \
 do { \
@@ -335,18 +352,42 @@ do { \
 void
 cz_code_store(cz_t *cz, ref_t ref);
 
+#define CZ_LOAD_REF(m_ref) \
+do { \
+    cz_code_load_ref(cz, m_ref); \
+    CZ_ERROR_CHECK(cz); \
+} while(0)
+void
+cz_code_load_ref(cz_t *cz, ref_t ref);
+
+#define CZ_STORE_REF() \
+do { \
+    cz_code_store_ref(cz); \
+    CZ_ERROR_CHECK(cz); \
+} while(0)
+void
+cz_code_store_ref(cz_t *cz);
+
+#define CZ_DEREF() \
+do { \
+    cz_code_deref(cz); \
+    CZ_ERROR_CHECK(cz); \
+} while(0)
+void
+cz_code_deref(cz_t *cz);
+
 
 func_ref_t
 cz_func_begin(cz_t *cz);
 
 ref_t
-cz_func_in(cz_t *cz, type_ref_t data_type);
+cz_func_in(cz_t *cz, variable_t var);
 
 void
-cz_func_out(cz_t *cz, type_ref_t data_type);
+cz_func_out(cz_t *cz, variable_t var);
 
 ref_t
-cz_func_var(cz_t *cz, type_ref_t data_type);
+cz_func_var(cz_t *cz, variable_t var);
 
 func_ref_t
 cz_func_end(cz_t *cz);

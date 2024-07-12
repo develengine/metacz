@@ -1,0 +1,21 @@
+
+[X] Static arrays.
+  [X] References.
+  [X] Special references with length.
+
+[ ] Function calling.
+  [X] Store meta data for a function on the compiler and create a vm_func_ref_t type.
+  [X] Calculate the function alignment during compilation.
+    - But for recursive functions we would need to use the maximum alignment anyways, so maybe don't care?
+    - We don't care, we will use the maximum alignment for everything.
+  [ ] Add function calling methods to the metacz interface.
+    [ ] Finish the metacz macros and have them return values as well and check errors too.
+  [ ] Make the compiler recurse on function calls.
+  [ ] We should also detect when we overstep the scope boundary with the function calls or other instructions.
+
+[ ] Dynamic arrays.
+[ ] Structures.
+[ ] Global memory.
+[ ] I/O instructions.
+[ ] Type checking mechanisms.
+

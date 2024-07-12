@@ -8,14 +8,16 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
 endif
 set shortmess=aoO
 badd +1 notes.txt
-badd +1 src/main.c
-badd +170 src/metacz.c
+badd +10 src/main.c
+badd +446 src/metacz.c
 badd +1 src/metacz.h
-badd +100 src/interpreter.c
+badd +152 src/interpreter.c
 badd +1 src/interpreter.h
 badd +1 build.c
 badd +1 src/tests.c
 badd +39 core/utils.h
+badd +1 notes/mantras
+badd +1 notes/todo
 argglobal
 %argdel
 $argadd notes.txt
@@ -39,12 +41,62 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 20 - ((19 * winheight(0) + 23) / 46)
+let s:l = 19 - ((14 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-20
-normal! 017|
+19
+normal! 0
+tabedit notes/todo
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 14 - ((13 * winheight(0) + 23) / 46)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+14
+normal! 0110|
+tabedit notes/mantras
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 19 - ((18 * winheight(0) + 23) / 46)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+19
+normal! 0
 tabedit build.c
 set splitbelow splitright
 set nosplitbelow
@@ -64,14 +116,18 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 28 - ((9 * winheight(0) + 23) / 46)
+let s:l = 38 - ((31 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-28
-normal! 033|
+38
+normal! 08|
 tabedit src/main.c
 set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
 set nosplitbelow
 set nosplitright
 wincmd t
@@ -79,6 +135,8 @@ set winminheight=0
 set winheight=1
 set winminwidth=0
 set winwidth=1
+exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
+exe 'vert 2resize ' . ((&columns * 104 + 105) / 210)
 argglobal
 setlocal fdm=manual
 setlocal fde=0
@@ -89,12 +147,33 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 57 - ((23 * winheight(0) + 23) / 46)
+let s:l = 10 - ((9 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-57
+10
 normal! 0
+wincmd w
+argglobal
+if bufexists("src/metacz.h") | buffer src/metacz.h | else | edit src/metacz.h | endif
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 334 - ((31 * winheight(0) + 23) / 46)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+334
+normal! 05|
+wincmd w
+exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
+exe 'vert 2resize ' . ((&columns * 104 + 105) / 210)
 tabedit src/metacz.c
 set splitbelow splitright
 wincmd _ | wincmd |
@@ -120,12 +199,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 170 - ((16 * winheight(0) + 23) / 46)
+let s:l = 364 - ((18 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-170
-normal! 0
+364
+normal! 06|
 wincmd w
 argglobal
 if bufexists("src/metacz.h") | buffer src/metacz.h | else | edit src/metacz.h | endif
@@ -138,12 +217,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 96 - ((20 * winheight(0) + 23) / 46)
+let s:l = 168 - ((26 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-96
-normal! 014|
+168
+normal! 0
 wincmd w
 exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
 exe 'vert 2resize ' . ((&columns * 104 + 105) / 210)
@@ -172,12 +251,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 100 - ((18 * winheight(0) + 23) / 46)
+let s:l = 152 - ((6 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-100
-normal! 0
+152
+normal! 05|
 wincmd w
 argglobal
 if bufexists("src/interpreter.h") | buffer src/interpreter.h | else | edit src/interpreter.h | endif
@@ -190,12 +269,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 16 - ((15 * winheight(0) + 23) / 46)
+let s:l = 131 - ((3 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-16
-normal! 0
+131
+normal! 024|
 wincmd w
 exe 'vert 1resize ' . ((&columns * 105 + 105) / 210)
 exe 'vert 2resize ' . ((&columns * 104 + 105) / 210)
@@ -218,13 +297,38 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 49 - ((41 * winheight(0) + 23) / 46)
+let s:l = 147 - ((32 * winheight(0) + 23) / 46)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-49
-normal! 069|
-tabnext 1
+147
+normal! 036|
+tabedit core/utils.h
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 50 - ((33 * winheight(0) + 23) / 46)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+50
+normal! 031|
+tabnext 6
 set stal=1
 if exists('s:wipebuf') && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf

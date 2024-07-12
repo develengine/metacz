@@ -32,21 +32,22 @@
     #endif
 #endif
 
+static inline void
+noop(void) { }
 
 #if defined(_DEBUG)
     #define ASSERT(...) \
     ( \
         !(__VA_ARGS__) ? ( \
             fprintf(stderr, "%s:%d: Assert failed! (%s)\n", __FILE__, __LINE__, #__VA_ARGS__), \
-            exit(1), \
-            0 /* unreachable but compiler is epic */ \
+            exit(1) \
         ) \
         : ( \
-            1 \
+            noop() \
         ) \
     )
 #else
-    #define ASSERT(...) (1)
+    #define ASSERT(...) (noop())
 #endif
 
 

@@ -2,10 +2,18 @@
 * Powerful.
 * Simple.
 * Intuitive.
+* Error driven learning.
+* Highly symetric.
 
 - A stateful program definition and execution interface.
 - Programs can be recorded, processed, executed and can record, process and execute programs.
 - The core can manage and accumulate state for different systems and processes.
+- It should be possible to utilize the language itself to easily implement different languages.
+  - It should act as a easily accessible and extensible backend.
 
+- We need to be able to have arrays of about anything.
+  - For instance, the application can have it's own buffer for defer statements.
+    - 2 buffers: One for instructions, other for slices.
+    - Then we keep popping from them and inserting them at the end of the recording.
 
 

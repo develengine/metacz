@@ -10,6 +10,31 @@ arena_alloc(arena_t *arena, u64 size, u64 alignment)
     return base;
 }
 
+void
+cz_debug_print_type(cz_t *cz, FILE *file, type_ref_t type)
+{
+    if (type.tag == data_type_Basic) {
+        fprintf(file, "%s",basic_name(type.index_for_tag));
+    }
+    else if (type.tag == data_type_Array) {
+        type_array_t array_type = cz->array_types.data[type.index_for_tag];
+        cz_debug_print_type(cz, file, array_type.type);
+        fprintf(file, "[%d]", array_type.length);
+    }
+    else {
+        fprintf(file, "<%d::%d>", type.tag, type.index_for_tag);
+    }
+}
+
+void
+cz_debug_print_var(cz_t *cz, FILE *file, variable_t var)
+{
+    if (var.is_reference) {
+        fprintf(file, "&");
+    }
+
+    cz_debug_print_type(cz, file, var.type);
+}
 
 void
 cz_debug_dump(cz_t *cz)
@@ -24,14 +49,8 @@ cz_debug_dump(cz_t *cz)
                 printf(", ");
             }
 
-            type_ref_t type = cz->abs_func_ins.data[func->in_offset + in_index];
-
-            if (type.tag == data_type_Basic) {
-                printf("%s", basic_name(type.index_for_tag));
-            }
-            else {
-                printf("%d.%d", type.tag, type.index_for_tag);
-            }
+            variable_t var = cz->abs_func_ins.data[func->in_offset + in_index];
+            cz_debug_print_var(cz, stdout, var);
         }
 
         printf(" -> ");
@@ -41,17 +60,22 @@ cz_debug_dump(cz_t *cz)
                 printf(", ");
             }
 
-            type_ref_t type = cz->abs_func_outs.data[func->out_offset + out_index];
-
-            if (type.tag == data_type_Basic) {
-                printf("%s", basic_name(type.index_for_tag));
-            }
-            else {
-                printf("%d.%d", type.tag, type.index_for_tag);
-            }
+            variable_t var = cz->abs_func_outs.data[func->out_offset + out_index];
+            cz_debug_print_var(cz, stdout, var);
         }
 
-        printf("\n");
+        printf("\n  : (");
+
+        for (u32 var_index = 0; var_index < func->var_count; ++var_index) {
+            if (var_index != 0) {
+                printf(", ");
+            }
+
+            variable_t var = cz->abs_func_vars.data[func->var_offset + var_index];
+            cz_debug_print_var(cz, stdout, var);
+        }
+
+        printf(")\n");
 
         for (u32 code_index = 0; code_index < func->code_count; ++code_index) {
             abs_code_t code = cz->abs_code.data[func->code_offset + code_index];
@@ -96,14 +120,29 @@ cz_debug_dump(cz_t *cz)
                     printf("     store global %d\n",
                            cz->abs_code.data[func->code_offset + ++code_index].value);
                     break;
+                case abs_inst_LoadRefIn:
+                    printf("     load ref in %d\n",
+                           cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_LoadRefVar:
+                    printf("     load ref var %d\n",
+                           cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_LoadRefGlobal:
+                    printf("     load ref global %d\n",
+                           cz->abs_code.data[func->code_offset + ++code_index].value);
+                    break;
+                case abs_inst_StoreRef:
+                    printf("     store ref\n");
+                    break;
                 case abs_inst_ArrRead:
                     printf("     array read\n");
                     break;
-                case abs_inst_ArrWrite:
-                    printf("     array write\n");
-                    break;
                 case abs_inst_ArrLength:
                     printf("     array length\n");
+                    break;
+                case abs_inst_Deref:
+                    printf("     deref\n");
                     break;
                 case abs_inst_Call:
                     printf("     call %d\n",
@@ -169,35 +208,9 @@ type_printf(cz_t *cz, type_ref_t type, u32 depth)
     printf("<unhandled>\n");
 }
 
-type_ref_t
-cz_make_type_array(cz_t *cz, type_ref_t type, u32 length)
-{
-    u32 index = cz->array_types.count;
-
-    dck_stretchy_push(cz->array_types, (type_array_t) {
-        .type   = type,
-        .length = length,
-    });
-
-    return (type_ref_t) {
-        .tag           = data_type_Array,
-        .index_for_tag = index,
-    };
-}
-
-type_ref_t
-cz_ref_type(cz_t *cz, ref_t ref)
-{
-    switch (ref.tag) {
-        case abs_ref_Var:    return cz->rec_func_vars.data[ref.index_for_tag];
-        case abs_ref_In:     return cz->rec_func_ins.data [ref.index_for_tag];
-        case abs_ref_Global: return cz->rec_func_outs.data[ref.index_for_tag]; // FIXME: WHAT?
-
-        case ABS_INST_REF_COUNT: UNREACHABLE();
-    }
-
-    UNREACHABLE();
-}
+//
+// FUNCTION RECORDING
+//
 
 func_ref_t
 cz_func_begin(cz_t *cz)
@@ -224,147 +237,6 @@ cz_func_begin(cz_t *cz)
 
     return (func_ref_t) { .func_index = abs_index };
 }
-
-ref_t
-cz_func_in(cz_t *cz, type_ref_t data_type)
-{
-    cz->rec_funcs.data[cz->rec_funcs.count - 1].in_count++;
-    u32 id = cz->rec_func_ins.count;
-    dck_stretchy_push(cz->rec_func_ins, data_type);
-    return (ref_t) { .tag = abs_ref_In, .index_for_tag = id };
-}
-
-void
-cz_func_out(cz_t *cz, type_ref_t data_type)
-{
-    cz->rec_funcs.data[cz->rec_funcs.count - 1].out_count++;
-    dck_stretchy_push(cz->rec_func_outs, data_type);
-}
-
-ref_t
-cz_func_var(cz_t *cz, type_ref_t data_type)
-{
-    cz->rec_funcs.data[cz->rec_funcs.count - 1].var_count++;
-    u32 id = cz->rec_func_vars.count;
-    dck_stretchy_push(cz->rec_func_vars, data_type);
-    return (ref_t) { .tag = abs_ref_Var, .index_for_tag = id };
-}
-
-void
-cz_code_add(cz_t *cz)
-{
-    if (cz->type_stack_size < 2) {
-        cz->error = "Addition of less than 2 items";
-        return;
-    }
-
-    cz->type_stack_size--;
-
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Add });
-}
-
-void
-cz_code_sub(cz_t *cz)
-{
-    if (cz->type_stack_size < 2) {
-        cz->error = "Subtraction of less than 2 items";
-        return;
-    }
-
-    cz->type_stack_size--;
-
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Sub });
-}
-
-void
-cz_code_arr_read(cz_t *cz)
-{
-    if (cz->type_stack_size < 2) {
-        cz->error = "Array read with less than 2 items on the stack";
-        return;
-    }
-
-    cz->type_stack_size--;
-
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrRead });
-}
-
-void
-cz_code_arr_write(cz_t *cz)
-{
-    if (cz->type_stack_size < 3) {
-        cz->error = "Array write with less than 3 items on the stack";
-        return;
-    }
-
-    cz->type_stack_size -= 3;
-
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrWrite });
-}
-
-void
-cz_code_load_imm(cz_t *cz, i32 imm)
-{
-    cz->type_stack_size++;
-
-    u64 data_offset = arena_alloc(&cz->imm_data, sizeof(i32), _Alignof(i32));
-
-    i32 *imm_ptr = (i32 *)(cz->imm_data.data + data_offset);
-    *imm_ptr = imm;
-
-    u32 imm_index = cz->immediates.count;
-
-    dck_stretchy_push(cz->immediates, (immediate_t) {
-        .type = CZ_BASIC_TYPE(Int),
-        .data_offset = data_offset,
-        .data_size = sizeof(i32),
-    });
-
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst  = abs_inst_LoadImm });
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .index = imm_index });
-}
-
-void
-cz_code_load(cz_t *cz, ref_t ref)
-{
-    cz->type_stack_size++;
-
-    abs_code_t code;
-
-    switch (ref.tag) {
-        case abs_ref_Var:    code.inst = abs_inst_LoadVar;    break;
-        case abs_ref_In:     code.inst = abs_inst_LoadIn;     break;
-        case abs_ref_Global: code.inst = abs_inst_LoadGlobal; break;
-
-        default: UNREACHABLE();
-    }
-
-    dck_stretchy_push(cz->rec_code, code);
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = ref.index_for_tag });
-}
-
-void
-cz_code_store(cz_t *cz, ref_t ref)
-{
-    if (cz->type_stack_size < 1) {
-        cz->error = "Store from empty stack";
-        return;
-    }
-
-    abs_code_t code;
-
-    switch (ref.tag) {
-        case abs_ref_Var:    code.inst = abs_inst_StoreVar;    break;
-        case abs_ref_In:     code.inst = abs_inst_StoreIn;     break;
-        case abs_ref_Global: code.inst = abs_inst_StoreGlobal; break;
-
-        default: UNREACHABLE();
-    }
-
-    dck_stretchy_push(cz->rec_code, code);
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = ref.index_for_tag });
-}
-
 
 func_ref_t
 cz_func_end(cz_t *cz)
@@ -426,6 +298,253 @@ cz_func_end(cz_t *cz)
 
     return (func_ref_t) { .func_index = abs_index };
 }
+
+ref_t
+cz_func_in(cz_t *cz, variable_t var)
+{
+    cz->rec_funcs.data[cz->rec_funcs.count - 1].in_count++;
+    u32 id = cz->rec_func_ins.count;
+    dck_stretchy_push(cz->rec_func_ins, var);
+    return (ref_t) { .tag = abs_ref_In, .index_for_tag = id };
+}
+
+void
+cz_func_out(cz_t *cz, variable_t var)
+{
+    cz->rec_funcs.data[cz->rec_funcs.count - 1].out_count++;
+    dck_stretchy_push(cz->rec_func_outs, var);
+}
+
+ref_t
+cz_func_var(cz_t *cz, variable_t var)
+{
+    cz->rec_funcs.data[cz->rec_funcs.count - 1].var_count++;
+    u32 id = cz->rec_func_vars.count;
+    dck_stretchy_push(cz->rec_func_vars, var);
+    return (ref_t) { .tag = abs_ref_Var, .index_for_tag = id };
+}
+
+//
+// OPERATIONS
+//
+
+void
+cz_code_add(cz_t *cz)
+{
+    if (cz->type_stack_size < 2) {
+        cz->error = "Addition of less than 2 items";
+        return;
+    }
+
+    cz->type_stack_size--;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Add });
+}
+
+void
+cz_code_sub(cz_t *cz)
+{
+    if (cz->type_stack_size < 2) {
+        cz->error = "Subtraction of less than 2 items";
+        return;
+    }
+
+    cz->type_stack_size--;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Sub });
+}
+
+//
+// FUNCTION CALLING
+//
+
+void
+cz_code_call_func(cz_t *cz, func_ref_t func_ref)
+{
+    abs_func_t *func = cz->abs_funcs.data + func_ref.func_index;
+
+    if (cz->type_stack_size < func->in_count) {
+        cz->error = "Calling a function with not enough items on the stack";
+        return;
+    }
+
+    cz->type_stack_size -= func->in_count;
+    cz->type_stack_size += func->out_count;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst  = abs_inst_Call });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .index = func_ref.func_index });
+}
+
+//
+// ARRAY OPERATIONS
+//
+
+type_ref_t
+cz_make_type_array(cz_t *cz, type_ref_t type, u32 length)
+{
+    u32 index = cz->array_types.count;
+
+    dck_stretchy_push(cz->array_types, (type_array_t) {
+        .type   = type,
+        .length = length,
+    });
+
+    return (type_ref_t) {
+        .tag           = data_type_Array,
+        .index_for_tag = index,
+    };
+}
+
+void
+cz_code_arr_read(cz_t *cz)
+{
+    if (cz->type_stack_size < 2) {
+        cz->error = "Array read with less than 2 items on the stack";
+        return;
+    }
+
+    cz->type_stack_size--;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrRead });
+}
+
+void
+cz_code_arr_length(cz_t *cz)
+{
+    if (cz->type_stack_size < 1) {
+        cz->error = "Array length with an empty stack";
+        return;
+    }
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ArrLength });
+}
+
+//
+// LOADS
+//
+
+void
+cz_code_load_imm(cz_t *cz, i32 imm)
+{
+    cz->type_stack_size++;
+
+    u64 data_offset = arena_alloc(&cz->imm_data, sizeof(i32), _Alignof(i32));
+
+    i32 *imm_ptr = (i32 *)(cz->imm_data.data + data_offset);
+    *imm_ptr = imm;
+
+    u32 imm_index = cz->immediates.count;
+
+    dck_stretchy_push(cz->immediates, (immediate_t) {
+        .type = {
+            .tag           = data_type_Basic,
+            .index_for_tag = data_basic_Int,
+        },
+        .data_offset = data_offset,
+        .data_size = sizeof(i32),
+    });
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst  = abs_inst_LoadImm });
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .index = imm_index });
+}
+
+void
+cz_code_load(cz_t *cz, ref_t ref)
+{
+    cz->type_stack_size++;
+
+    abs_code_t code;
+
+    switch (ref.tag) {
+        case abs_ref_Var:    code.inst = abs_inst_LoadVar;    break;
+        case abs_ref_In:     code.inst = abs_inst_LoadIn;     break;
+        case abs_ref_Global: code.inst = abs_inst_LoadGlobal; break;
+
+        default: UNREACHABLE();
+    }
+
+    dck_stretchy_push(cz->rec_code, code);
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = ref.index_for_tag });
+}
+
+void
+cz_code_load_ref(cz_t *cz, ref_t ref)
+{
+    cz->type_stack_size++;
+
+    abs_code_t code;
+
+    switch (ref.tag) {
+        case abs_ref_Var:    code.inst = abs_inst_LoadRefVar;    break;
+        case abs_ref_In:     code.inst = abs_inst_LoadRefIn;     break;
+        case abs_ref_Global: code.inst = abs_inst_LoadRefGlobal; break;
+
+        default: UNREACHABLE();
+    }
+
+    dck_stretchy_push(cz->rec_code, code);
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = ref.index_for_tag });
+}
+
+//
+// STORES
+//
+
+void
+cz_code_store(cz_t *cz, ref_t ref)
+{
+    if (cz->type_stack_size < 1) {
+        cz->error = "Store from empty stack";
+        return;
+    }
+
+    cz->type_stack_size--;
+
+    abs_code_t code;
+
+    switch (ref.tag) {
+        case abs_ref_Var:    code.inst = abs_inst_StoreVar;    break;
+        case abs_ref_In:     code.inst = abs_inst_StoreIn;     break;
+        case abs_ref_Global: code.inst = abs_inst_StoreGlobal; break;
+
+        default: UNREACHABLE();
+    }
+
+    dck_stretchy_push(cz->rec_code, code);
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = ref.index_for_tag });
+}
+
+void
+cz_code_store_ref(cz_t *cz)
+{
+    if (cz->type_stack_size < 2) {
+        cz->error = "Store reference from a stack with less than 2 objects";
+        return;
+    }
+
+    cz->type_stack_size -= 2;
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst  = abs_inst_StoreRef });
+}
+
+//
+// DEREFERENCE
+//
+
+void
+cz_code_deref(cz_t *cz)
+{
+    if (cz->type_stack_size < 1) {
+        cz->error = "Dereference of an empty stack";
+        return;
+    }
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Deref });
+}
+
+//
+// SCOPES
+//
 
 static b32
 cz_scope_check(cz_t *cz, u32 scope_index)
@@ -548,6 +667,10 @@ cz_scope_end(cz_t *cz)
     cz->scope_frames.count = scope->frame_offset;
     cz->scopes.count = scope_index;
 }
+
+//
+// JUMPS
+//
 
 static b32
 cz_jmp_check(cz_t *cz, jmp_type_t jmp_type)

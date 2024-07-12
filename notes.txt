@@ -1,28 +1,51 @@
+06/07/2024
+[X] Implement the ability to get the length of an array from it's reference.
+
+[ ] Consider immediate arrays.
+  - Infact, consider immediate values for any type.
+    - Probably this is an interface problem... no shit.
+[ ] Implement the char type.
+  - This type is going to be used for parsing text of source code and so on.
+
+[ ] Add the rebuild call to the template.
+
+
+05/07/2024
+[X] Do bound checks for stores as well.
+  - I think it may be beneficial to keep the memory above the SP untouched, unless we store into it and want to increment it.
+[X] Create a test for the loop and array thing.
+
+[X] Figure out the global memory system.
+
+- Since the system currently only supports data within the interpreter, we need a way to share data with the metacz.
+  - Basically the data still needs to be allocated by the interpreter, but stored on the metacz and it must be possible to retrieve this data.
+    - To retrieve this data we would use the load and store operations of the global kind.
+- So we need an interface which will create a global variable of a given type and return a reference to it.
+  - The representation of the variable needs to be chosen of course, this will be under the metacz representation standard.
+    - This standard will be interchangeable of course, but should be about the same for any given architecture.
+
+04/07/2024
+[X] Redo the operators and jumps to use the registers.
+[X] Add reference checks to all the hardcoded types.
+[X] IncSP code looks retarder.
+  - The code was retardeded because it didn't support negative increments.
+
+03/07/2024
+[X] Implement the array type.
+
+- Different platform or extension features can be under their own namespaces and if one want's to use them dirrectly they can be splatted into their corresponding structures.
+- Write instructions can be replaced with read and then store ref instruction.
+- Also store ref. In/Var/Global isn't necessary since the reference has to track it's own origin.
 
 30/06/2024
-[ ] Implement the array type.
-[ ] Figure out the global memory system.
+[X] Try to make the ASSERTS not warn when in release mode.
+  - Done.
 
 - Having outputs be defined as variables may be useful since then we could do without translating the results in the function frame.
   - Something similar to ABAP. We could provide to the procedure a dynamic result base and the results would be written to there.
   - It is however a bit different when it comes to the way we define results of a function.
     - The results of a function are defined by the state of the stack at the procedure's end.
       - This allows us to not have to define the output of the procedure upfront and give the outputs identifiers.
-
-[ ] Consider immediate arrays.
-
-[ ] Implement the char type.
-  - This type is going to be used for parsing text of source code and so on.
-
-[ ] Figure out how well defined unsigned overflow in C is.
-[ ] Change the interpreter files to use the union instead of ptr casting on the instructions.
-[ ] Consider adding SP offset to the return system.
-  - I'm not sure what this means since the stack pointer is relative from the base?
-
-[ ] Add the rebuild call to the template.
-[ ] Try to make the ASSERTS not warn when in release mode.
-
-
 
 27/06/2024
 - What are we missing from a proper language:

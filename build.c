@@ -11,6 +11,7 @@ tests(i32 argc, char *argv[])
     bld_sa_t cc = {0};
     BLD_SA_PUSH(cc, "src/tests.c", "src/metacz.c", "src/interpreter.c");
     BLD_SA_PUSH(cc, "-I.", "-Isrc", "-o", output, BLD_WARNINGS);
+    BLD_SA_PUSH(cc, "-g");
     BLD_SA_PUSH(cc, "-D_DEBUG");
 
     u32 res = bld_cc_params((const char **)cc.data, cc.count);
@@ -34,6 +35,7 @@ main(i32 argc, char *argv[])
     BLD_SA_PUSH(cc, "src/main.c", "src/metacz.c", "src/interpreter.c");
     BLD_SA_PUSH(cc, "-I.", "-Isrc", "-o", output, BLD_WARNINGS);
     if (bld_contains("debug", argc, argv)) {
+        BLD_SA_PUSH(cc, "-g");
         BLD_SA_PUSH(cc, "-D_DEBUG");
     }
 
