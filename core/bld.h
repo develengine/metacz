@@ -211,8 +211,12 @@ bld_sa_push_multiple_nt(bld_sa_t *sa, char **data);
                              "no-deprecated-declarations", "no-missing-field-initializers", \
                              "no-missing-braces"
 
+#define BLD_MSVC_WARNINGS "-W4"
+
 #if !defined(_WIN32)
     #define BLD_WARNINGS BLD_GCC_WARNINGS
+#else
+    #define BLD_WARNINGS BLD_MSVC_WARNINGS
 #endif
 
 
