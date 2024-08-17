@@ -151,6 +151,12 @@ cz_debug_dump(cz_t *cz)
                 case abs_inst_Ret:
                     printf("     ret\n");
                     break;
+                case abs_inst_ScopeBegin:
+                    printf("     scope begin\n");
+                    break;
+                case abs_inst_ScopeEnd:
+                    printf("     scope end ");
+                    goto jmp_fin;
                 case abs_inst_Label:
                     printf("     label %d\n",
                            cz->abs_code.data[func->code_offset + ++code_index].value);
@@ -588,6 +594,8 @@ cz_scope_begin(cz_t *cz)
         .stack_bottom = cz->type_stack_size,
     });
 
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ScopeBegin });
+
     return (scope_ref_t) {
         .scope_index = scope_index,
     };
@@ -661,7 +669,10 @@ cz_scope_end(cz_t *cz)
 
     scope_frame_t *frame = cz->scope_frames.data + scope->frame_offset;
 
-    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Label });
+    // dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_Label });
+    // dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = frame->label_index });
+
+    dck_stretchy_push(cz->rec_code, (abs_code_t) { .inst = abs_inst_ScopeEnd });
     dck_stretchy_push(cz->rec_code, (abs_code_t) { .value = frame->label_index });
 
     cz->scope_frames.count = scope->frame_offset;

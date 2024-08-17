@@ -42,10 +42,10 @@ basic_name(data_basic_t basic)
 
 #define CZ_BASIC_TYPE(m_label) ((type_ref_t) { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label })
 
-#define CZ_BASIC_VAR(m_label) ((variable_t) { .type = { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label } })
+#define CZ_BASIC_VAL(m_label) ((variable_t) { .type = { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label } })
 #define CZ_BASIC_REF(m_label) ((variable_t) { .type = { .tag = data_type_Basic, .index_for_tag = data_basic_##m_label }, .is_reference = true })
 
-#define CZ_VAR(m_type) ((variable_t) { .type = (m_type) })
+#define CZ_VAL(m_type) ((variable_t) { .type = (m_type) })
 #define CZ_REF(m_type) ((variable_t) { .type = (m_type), .is_reference = true })
 
 typedef struct
@@ -69,49 +69,68 @@ typedef enum
     JMP_TYPE_COUNT
 } jmp_type_t;
 
+#define ABS_INST_TABLE \
+    O(Add)           /* (a, b) -> (c) */ \
+    O(Sub)           /* (a, b) -> (c) */ \
+    \
+    O(LoadIn)        /* () -> (a) */ \
+    O(LoadVar)       /* () -> (a) */ \
+    O(LoadImm)       /* () -> (a) */ \
+    O(LoadGlobal)    /* () -> (a) */ \
+    \
+    O(StoreIn)       /* (a) -> () */ \
+    O(StoreVar)      /* (a) -> () */ \
+    O(StoreImm)      /* (a) -> () */ \
+    O(StoreGlobal)   /* (a) -> () */ \
+    \
+    O(LoadRefIn)     /* () -> (&a) */ \
+    O(LoadRefVar)    /* () -> (&a) */ \
+    O(LoadRefGlobal) /* () -> (&a) */ \
+    \
+    O(StoreRef)      /* (a, &a) -> () */ \
+    \
+    O(ArrRead)       /* ([int], [&arr<a>]) -> (&a) */ \
+    O(ArrLength)     /* ([&arr<a>])        -> ([int]) */ \
+    \
+    O(Deref)         /* (&a) -> (a) */ \
+    \
+    O(Call)          /* ... -> ... */ \
+    O(Ret)           /* () -> () */ \
+    \
+    O(ScopeBegin)    /* () -> () */ \
+    O(ScopeEnd)      /* () -> () */ \
+    O(Label)         /* () -> () */ \
+    \
+    O(JmpUc)         /* ()     -> () */ \
+    O(JmpNz)         /* (a)    -> () */ \
+    O(JmpZe)         /* (a)    -> () */ \
+    O(JmpEq)         /* (a, b) -> () */ \
+    O(JmpNe)         /* (a, b) -> () */ \
+    O(JmpLt)         /* (a, b) -> () */ \
+    O(JmpGt)         /* (a, b) -> () */ \
+    O(JmpLe)         /* (a, b) -> () */ \
+    O(JmpGe)         /* (a, b) -> () */ \
+/**/
+
 typedef enum //              stack:
 {
-    abs_inst_Add,            // (a, b) -> (c)
-    abs_inst_Sub,            // (a, b) -> (c)
-
-    abs_inst_LoadIn,         // () -> (a)
-    abs_inst_LoadVar,        // () -> (a)
-    abs_inst_LoadImm,        // () -> (a)
-    abs_inst_LoadGlobal,     // () -> (a)
-
-    abs_inst_StoreIn,        // (a) -> ()
-    abs_inst_StoreVar,       // (a) -> ()
-    abs_inst_StoreImm,       // (a) -> ()
-    abs_inst_StoreGlobal,    // (a) -> ()
-
-    abs_inst_LoadRefIn,      // () -> (&a)
-    abs_inst_LoadRefVar,     // () -> (&a)
-    abs_inst_LoadRefGlobal,  // () -> (&a)
-
-    abs_inst_StoreRef,       // (a, &a) -> ()
-
-    abs_inst_ArrRead,        // ([int], [&arr<a>]) -> (&a)
-    abs_inst_ArrLength,      // ([&arr<a>])        -> ([int])
-
-    abs_inst_Deref,          // (&a) -> (a)
-
-    abs_inst_Call,           // ... -> ...
-    abs_inst_Ret,            // () -> ()
-
-    abs_inst_Label,          // () -> ()
-
-    abs_inst_JmpUc,          // ()     -> ()
-    abs_inst_JmpNz,          // (a)    -> ()
-    abs_inst_JmpZe,          // (a)    -> ()
-    abs_inst_JmpEq,          // (a, b) -> ()
-    abs_inst_JmpNe,          // (a, b) -> ()
-    abs_inst_JmpLt,          // (a, b) -> ()
-    abs_inst_JmpGt,          // (a, b) -> ()
-    abs_inst_JmpLe,          // (a, b) -> ()
-    abs_inst_JmpGe,          // (a, b) -> ()
-
+#define O(m_name) abs_inst_##m_name,
+    ABS_INST_TABLE
+#undef O
     ABS_INST_COUNT
 } abs_inst_t;
+
+static inline const char *
+abs_inst_name(abs_inst_t inst)
+{
+    switch (inst) {
+#define O(m_name) case abs_inst_##m_name: return #m_name; 
+    ABS_INST_TABLE
+#undef O
+        default:
+            return "<unknown>";
+    }
+}
 
 typedef enum
 {
@@ -267,20 +286,22 @@ typedef struct
 u64
 arena_alloc(arena_t *arena, u64 size, u64 alignment);
 
+static inline void
+cz_noop(void) { }
 
-#define CZ_ERROR_CHECK(m_cz) \
-do { \
-    if (cz->error) { \
+#define CZ_ERROR_CHECK(m_cz) ( \
+    ((m_cz)->error) ? ( \
         fprintf(stderr, \
             "%s:%d ERROR:\n" \
             "    %s.\n" \
             , \
             __FILE__, __LINE__, \
-            cz->error \
-        ); \
-        exit(1); \
-    } \
-} while (0)
+            (m_cz)->error \
+        ), \
+        exit(1) \
+    ) \
+    : ( cz_noop() ) \
+) 
 
 void
 type_printf(cz_t *cz, type_ref_t type, u32 depth);
@@ -315,7 +336,7 @@ cz_code_sub(cz_t *cz);
 #define CZ_READ() \
 do { \
     cz_code_arr_read(cz); \
-    CZ_ERROR_CHECK(); \
+    CZ_ERROR_CHECK(cz); \
 } while (0)
 void
 cz_code_arr_read(cz_t *cz);
@@ -323,7 +344,7 @@ cz_code_arr_read(cz_t *cz);
 #define CZ_LENGTH() \
 do { \
     cz_code_arr_length(cz); \
-    CZ_ERROR_CHECK(); \
+    CZ_ERROR_CHECK(cz); \
 } while (0)
 void
 cz_code_arr_length(cz_t *cz);
@@ -380,17 +401,42 @@ cz_code_deref(cz_t *cz);
 func_ref_t
 cz_func_begin(cz_t *cz);
 
+#define CZ_IN(m_var_name, m_type_ref) \
+    ref_t m_var_name = cz_func_in(cz, (variable_t) { .type = m_type_ref }); \
+    CZ_ERROR_CHECK(cz)
+#define CZ_IN_REF(m_var_name, m_type_ref) \
+    ref_t m_var_name = cz_func_in(cz, (variable_t) { .type = m_type_ref, \
+                                                     .is_reference = true }); \
+    CZ_ERROR_CHECK(cz)
 ref_t
 cz_func_in(cz_t *cz, variable_t var);
 
+#define CZ_OUT(m_type_ref) \
+    cz_func_out(cz, (variable_t) { .type = m_type_ref }); \
+    CZ_ERROR_CHECK(cz)
+#define CZ_OUT_REF(m_type_ref) \
+    cz_func_out(cz, (variable_t) { .type = m_type_ref, \
+                                   .is_reference = true }); \
+    CZ_ERROR_CHECK(cz)
 void
 cz_func_out(cz_t *cz, variable_t var);
 
+#define CZ_VAR(m_var_name, m_type_ref) \
+    ref_t m_var_name = cz_func_var(cz, (variable_t) { .type = m_type_ref }); \
+    CZ_ERROR_CHECK(cz)
+#define CZ_VAR_REF(m_var_name, m_type_ref) \
+    ref_t m_var_name = cz_func_var(cz, (variable_t) { .type = m_type_ref, \
+                                                      .is_reference = true }); \
+    CZ_ERROR_CHECK(cz)
 ref_t
 cz_func_var(cz_t *cz, variable_t var);
 
 func_ref_t
 cz_func_end(cz_t *cz);
+
+#define CZ_FUNC(m_func_name) \
+    func_ref_t m_func_name = cz_func_begin(cz); \
+    for (int _flag_##__LINE__ = 1; _flag_##__LINE__; cz_func_end(cz), _flag_##__LINE__ = 0)
 
 
 scope_ref_t

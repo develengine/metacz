@@ -1,15 +1,29 @@
 
 
+ZIGG
+
+
 - Alignment on types can influence whether a pointer of some type can be coerced to a pointer of a different type.
   - This way even a void* can have an alignment and be used to decide whether it can be coerced to a specific thing.
     - This would of course be only a single scope level thing that is only meant to help catch ze bugz.
   - The proper check would mostly just check whether a type of certain pointer can be coerced into a different type.
 - Specifying alignment on variables and functions. (for their pointers)
 
-| These things should be provided by the beckend and defined by a standard.
+| These things should be provided by the backend and defined by a standard.
 
 - Sentinel termination should be implemented on top of the metacz, not as part of it.
 
 - Instead of having a "le-packed" keyword for structs, we should be able to provide the standard that it should use.
 
-- named blocks are a must, (of course)
+- Named blocks are a must, (of course). Already supported pretty much.
+
+
+ABAP
+
+
+- Assigning meaning to values of different types (such as domains in ABAP) is probably kinda sick!
+  - This way we can define a special 'empty' value for u32s, 0xFFFFFFFF, and it will be recognized by the compiler.
+    - Maybe this makes sense, it is also very similar to the concept of an enum, but for other types as well.
+
+
+

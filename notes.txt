@@ -1,14 +1,60 @@
-06/07/2024
-[X] Implement the ability to get the length of an array from it's reference.
-
+backlog
 [ ] Consider immediate arrays.
   - Infact, consider immediate values for any type.
     - Probably this is an interface problem... no shit.
 [ ] Implement the char type.
   - This type is going to be used for parsing text of source code and so on.
-
 [ ] Add the rebuild call to the template.
+[ ] The jump expressions should be more general and not specify the type of condition in the jump itself.
+  - Not sure though.
 
+17/08/2024
+[ ] Make the functions be able to call each other.
+  [ ] Allow for recursive functions to compile.
+    [ ] Implement the backpatching.
+[ ] We need to trim memory to the smallest possible before jumps and function calls.
+[ ] Create a separate buffer for vm_function output objects, so that we can also deduce them.
+[ ] Make it so that the compiler doesn't emit code that writes beyon the memory.count.
+
+15/08/2024
+    [X] Generator for moving the called function's outputs back to the start of the current stack.
+
+13/08/2024
+    [X] Do the arithmetic to compute the new base offset for the function call.
+      X 05:00 - 06:05
+
+12/08/2024
+    [X] Implement the recording code buffer, so that we can compile functions recursively.
+      X 05:15 - 05:59
+    [X] Figure out backpatching of the function calls.
+      - If we find it but it's 0, then we push it to the backpatch queue.
+      X 05:59 - 06:17
+
+02/08/2024
+- Mostly just planning.
+
+01/08/2024
+    [X] Realign the current objects based on the input to the function.
+    [X] Calling convention that handles the base_offset/s and return address.
+
+30/07/2024
+    [X] Make sure the functions get a data id at the start of the compile method.
+    [X] If provided, the output objects should be used for the function signature.
+    [-] Create a meta instruction that freezes argument specification.
+      - This is useful maybe for the metacz interface, but only if the compilation could happen alongside the recording of the functions.
+        - This isn't something we support yet.
+
+29/07/2024
+  [X] Redo the function calling to have the caller realign the output.
+    [X] Make the vm_call function that realigns the output automatically.
+      [X] Make the compiler be aware of scopes so that we can deal with branched code correctly.
+        [X] Redo the final "0 index" frame to be handled by the end_scope instruction.
+
+27/07/2024
+- What the fuck...
+
+06/07/2024
+[X] Implement the ability to get the length of an array from it's reference.
 
 05/07/2024
 [X] Do bound checks for stores as well.

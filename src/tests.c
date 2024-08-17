@@ -5,10 +5,10 @@ func_ref_t
 f_add_example(cz_t *cz)
 {
     cz_func_begin(cz);
-        ref_t a = cz_func_in(cz, CZ_BASIC_VAR(Int));
-        ref_t b = cz_func_in(cz, CZ_BASIC_VAR(Int));
+        ref_t a = cz_func_in(cz, CZ_BASIC_VAL(Int));
+        ref_t b = cz_func_in(cz, CZ_BASIC_VAL(Int));
     /**/
-        cz_func_out(cz, CZ_BASIC_VAR(Int));
+        cz_func_out(cz, CZ_BASIC_VAL(Int));
     /**/
         CZ_LOAD(a); CZ_LOAD(b); CZ_ADD();
     return cz_func_end(cz);
@@ -18,9 +18,9 @@ func_ref_t
 f_jmp_example(cz_t *cz)
 {
     cz_func_begin(cz);
-        ref_t in = cz_func_in(cz, CZ_BASIC_VAR(Int));
+        ref_t in = cz_func_in(cz, CZ_BASIC_VAL(Int));
     /**/
-        cz_func_out(cz, CZ_BASIC_VAR(Int));
+        cz_func_out(cz, CZ_BASIC_VAL(Int));
     /**/
         {
             scope_ref_t _scope = cz_scope_begin(cz);
@@ -42,12 +42,12 @@ f_add_nums(cz_t *cz)
     type_ref_t arr_5_t = cz_make_type_array(cz, CZ_BASIC_TYPE(Int), 5);
 
     cz_func_begin(cz);
-        ref_t base = cz_func_in(cz, CZ_BASIC_VAR(Int));
+        ref_t base = cz_func_in(cz, CZ_BASIC_VAL(Int));
     /**/
-        cz_func_out(cz, CZ_VAR(arr_5_t));
+        cz_func_out(cz, CZ_VAL(arr_5_t));
     /**/
-        ref_t arr_5 = cz_func_var(cz, CZ_VAR(arr_5_t));
-        ref_t index = cz_func_var(cz, CZ_BASIC_VAR(Int));
+        ref_t arr_5 = cz_func_var(cz, CZ_VAL(arr_5_t));
+        ref_t index = cz_func_var(cz, CZ_BASIC_VAL(Int));
     /**/
         CZ_LOAD_IMM(0); CZ_STORE(index);
 
@@ -111,7 +111,7 @@ main(void)
     func_ref_t jmp_func = f_jmp_example(&cz);
     func_ref_t loop_func = f_add_nums(&cz);
 
-    vm_t vm = {0};
+    vm_t vm = vm_create();
     vm_compiler_t compiler = {0};
 
     vm_func_ref_t add_f = vm_compile(&vm, &compiler, &cz, add_func);
@@ -121,14 +121,14 @@ main(void)
     vm_clear(&vm);
     VM_PUSH(&vm, i32, &(i32) { 5 });
     VM_PUSH(&vm, i32, &(i32) { 3 });
-    vm_execute(&vm, &cz, add_f.code_offset);
+    vm_call(&vm, &compiler, &cz, add_f);
     res = *VM_GET(&vm, i32);
     TEST(res == 8);
 
     vm_clear(&vm);
     VM_PUSH(&vm, i32, &(i32) { -1 });
     VM_PUSH(&vm, i32, &(i32) { 4 });
-    vm_execute(&vm, &cz, add_f.code_offset);
+    vm_call(&vm, &compiler, &cz, add_f);
     res = *VM_GET(&vm, i32);
     TEST(res == 3);
 
@@ -136,7 +136,7 @@ main(void)
 
     vm_clear(&vm);
     VM_PUSH(&vm, i32, &(i32) { 8 });
-    vm_execute(&vm, &cz, jmp_f.code_offset);
+    vm_call(&vm, &compiler, &cz, jmp_f);
     res = *VM_GET(&vm, i32);
     TEST(res == 1);
 
@@ -145,7 +145,7 @@ main(void)
     vm_clear(&vm);
     i32 base = 3;
     VM_PUSH(&vm, i32, &(i32) { 3 });
-    vm_execute(&vm, &cz, loop_f.code_offset);
+    vm_call(&vm, &compiler, &cz, loop_f);
     i32 *data = VM_GET_ARR(&vm, i32, 5);
 
     for (i32 i = 0; i < 5; ++i) {
